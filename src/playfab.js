@@ -1,7 +1,7 @@
 import { global } from './vars';
 import { messageQueue } from './functions.js';
 
-PlayFab.settings.titleId = 'CE351';
+PlayFab.settings.titleId = 'B60B5';
 export var playFabId = -1;
 
 export var playFabStats = {
