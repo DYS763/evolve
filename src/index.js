@@ -51,7 +51,7 @@ export function mainVue(){
                 const date = new Date();
                 downloadToFile(window.exportGame(), `evolve-${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}.txt`, 'text/plain');
             },
-            importStringFile(){ 
+            importStringFile(){
                 let file = document.getElementById("stringPackFile").files[0];
                 if (file) {
                     let reader = new FileReader();
@@ -65,7 +65,7 @@ export function mainVue(){
                             global.settings.sPackMsg = loc(`string_pack_error`,[fileName]);
                             return;
                         }
-                       
+
                         global.settings.sPackMsg = loc(`string_pack_using`,[fileName]);
                         save.setItem('string_pack_name',fileName); save.setItem('string_pack',LZString.compressToUTF16(evt.target.result));
                         if (global.settings.sPackOn){
@@ -76,7 +76,7 @@ export function mainVue(){
                             }
                             window.location.reload();
                         }
-                       
+
                     }
                     reader.onerror = function (evt) {
                         console.error("error reading file");
@@ -738,15 +738,15 @@ export function loadTab(tab){
                             $('#market').append(market_item);
                             marketItem(`#market-${name}`,market_item,name,color,true);
                         }
-                    
+
                         if (atomic_mass[name]){
                             loadEjector(name,color);
                         }
-                    
+
                         if (supplyValue[name]){
                             loadSupply(name,color);
                         }
-                    
+
                         if (tradeRatio[name] && global.race.universe === 'magic'){
                             global['resource'][name]['basic'] = tradable;
                             loadAlchemy(name,color,tradable);
@@ -952,7 +952,7 @@ export function index(){
 
                         var body = $('<div id="specialModal" class="modalBody vscroll"></div>');
                         $('#modalBox').append(body);
-                        
+
                         let catVis = $(`
                             <div>
                                 <div>
@@ -979,18 +979,18 @@ export function index(){
                         body.append(catVis);
                         body.append(catMax);
                         body.append(catSave);
-                        
+
                         let visSet = ``;
                         let maxSet = ``;
                         let saveSet = ``;
-                        
+
                         let maxInputs = {};
                         let saveInputs = {};
                         message_filters.forEach(function (filter){
                             visSet += `<div class="msgInput" v-show="s.${filter}.unlocked"><span>${loc('message_log_' + filter)}</span> <b-checkbox class="patrol" v-model="s.${filter}.vis" :disabled="checkDisabled('${filter}',s.${filter}.vis)" :input="check('${filter}')"></b-checkbox></div>`;
                             maxSet += `<div class="msgInput" v-show="s.${filter}.unlocked"><span>${loc('message_log_' + filter)}</span> <b-numberinput :input="maxVal('${filter}')" min="1" v-model="mi.${filter}" :controls="false"></b-numberinput></div>`;
                             saveSet += `<div class="msgInput" v-show="s.${filter}.unlocked"><span>${loc('message_log_' + filter)}</span> <b-numberinput :input="saveVal('${filter}')" min="0" :max="s.${filter}.max" v-model="si.${filter}" :controls="false"></b-numberinput></div>`;
-                            
+
                             maxInputs[filter] = global.settings.msgFilters[filter].max;
                             saveInputs[filter] = global.settings.msgFilters[filter].save;
                         });
@@ -1007,8 +1007,8 @@ export function index(){
                                 <button class="button" @click="applySave()">${loc('message_log_settings_apply')}</button>
                             </div>
                         `);
-                        
-                        
+
+
                         vBind({
                             el: `#specialModal`,
                             data: {
@@ -1045,7 +1045,7 @@ export function index(){
                                             totVis++;
                                         }
                                     });
-                                    
+
                                     return totVis === 1;
                                 },
                                 maxVal(filter){
@@ -1349,7 +1349,7 @@ export function index(){
         </div>
         <div class="online-save">
             <b-collapse :open="s.onlineSave">
-            <b-switch v-model="s.onlineSave" slot="trigger">启用云存档(PlayFab)</b-switch>
+            <b-switch v-model="s.onlineSave" slot="trigger">启用云存档</b-switch>
                 <div class="content">
                     <div class="login-content">
                     <b-tabs>
@@ -1433,12 +1433,12 @@ export function index(){
                 <h2 class="is-sr-only">External Links</h2>
                 <ul class="external-links">
                     <li><a href="wiki.html" target="_blank">Wiki</a></li>
-                    <li><a href="https://shimo.im/sheets/tg6VPQgCKhrYW9QG/" target="_blank" style="color: green;">进化攻略本（作为wiki补充）</a></li>
-                    <li><a href="https://www.reddit.com/r/EvolveIdle/" target="_blank">Reddit</a></li>
+<!--                    <li><a href="https://shimo.im/sheets/tg6VPQgCKhrYW9QG/" target="_blank" style="color: green;">进化攻略本（作为wiki补充）</a></li>-->
+<!--                    <li><a href="https://www.reddit.com/r/EvolveIdle/" target="_blank">Reddit</a></li>
                     <li><a href="https://discord.gg/dcwdQEr" target="_blank">Discord</a></li>
                     <li><a href="https://github.com/pmotschmann/Evolve" target="_blank">GitHub</a></li>
                     <li><a href="https://www.patreon.com/demagorddon" target="_blank">Patreon</a></li>
-                    <li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PTRJZBW9J662C&currency_code=USD&source=url" target="_blank">Donate</a></li>
+                    <li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PTRJZBW9J662C&currency_code=USD&source=url" target="_blank">Donate</a></li>-->
                 </ul>
             </span>
         </div>
