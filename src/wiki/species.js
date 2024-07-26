@@ -3,6 +3,7 @@ import { loc } from './../locale.js';
 import { clearElement, popover, getEaster, getTraitDesc } from './../functions.js';
 import { races, traits, genus_traits, traitSkin } from './../races.js';
 import { ascendLab } from './../space.js';
+import { actions } from './../actions.js';
 import { sideMenu, infoBoxBuilder } from './functions.js';
 
 export function speciesPage(zone){
@@ -47,19 +48,45 @@ export function customPage(content) {
     ascendLab(lab);
 }
 
+const evolutionPath = {
+    angelic: ['phagocytosis', 'mammals', 'celestial'],
+    aquatic: ['phagocytosis', 'aquatic'],
+    avian: ['phagocytosis', 'eggshell', 'endothermic'],
+    carnivore: ['phagocytosis', 'mammals', 'animalism', 'carnivore'],
+    demonic: ['phagocytosis', 'mammals', 'demonic'],
+    eldritch: ['phagocytosis', 'eldritch'],
+    fey: ['phagocytosis', 'fey'],
+    fungi: ['chitin'],
+    giant: ['phagocytosis', 'mammals', 'gigantism'],
+    heat: ['phagocytosis', 'heat'],
+    herbivore: ['phagocytosis', 'mammals', 'animalism', 'herbivore'],
+    humanoid: ['phagocytosis', 'mammals', 'humanoid'],
+    insectoid: ['phagocytosis', 'athropods'],
+    plant: ['chloroplasts'],
+    polar: ['phagocytosis', 'polar'],
+    reptilian: ['phagocytosis', 'eggshell', 'ectothermic'],
+    sand: ['phagocytosis', 'sand'],
+    small: ['phagocytosis', 'mammals', 'dwarfism'],
+    synthetic: ['exterminate'],
+};
+
+Object.keys(evolutionPath).forEach(function (key) {
+    evolutionPath[key] = evolutionPath[key].map(function (s) { return typeof actions.evolution[s].title === 'function' ? actions.evolution[s].title() : actions.evolution[s].title; }).join(' -> ');
+});
+
 export function racesPage(content){
     content = sideMenu('create',content);
 
     let list = [];
     Object.keys(races).forEach(function (race){
-        if ((race === 'custom' && !global.hasOwnProperty('custom')) || race === 'protoplasm'){
+        if ((race === 'custom' && !global.custom.hasOwnProperty('race0')) || race === 'protoplasm'){
             return;
         }
 
         let info = $(`<div id="${race}" class="infoBox"></div>`);
         content.append(info);
 
-        info.append(`<div class="type"><h2 class="has-text-warning">${races[race].name}</h2><span class="has-text-caution">${loc(`genelab_genus_${races[race].type}`)}</span></div>`);
+        info.append(`<div class="type"><h2 class="has-text-warning">${races[race].name}</h2><span id="genus${race}" class="has-text-caution">${loc(`genelab_genus_${races[race].type}`)}</span></div>`);
         info.append(`<div class="desc">${typeof races[race].desc === 'string' ? races[race].desc : races[race].desc()}</div>`);
 
         let traitList = [];
@@ -87,6 +114,8 @@ export function racesPage(content){
         info.append(genes);
         list.push(race);
 
+        popover(`genus${race}`,$(`<div>${loc(`genelab_genus_${races[race].type}_desc`)}<br><br>${evolutionPath[races[race].type]}</div>`),{ wide: true, classes: 'w25' });
+
         for (let i=0; i<traitList.length; i++){
             let id = `raceTrait${race}${traitList[i].t}`;
             let desc = $(`<div></div>`);
@@ -108,10 +137,12 @@ export function racesPage(content){
 
 function extraTraitList(race){
     const date = new Date();
+    let easter = getEaster();
     switch (race){
         case 'wolven':
-            let easter = getEaster();
             return easter.active ? [{t: 'hyper', r: 1},{t: 'fast_growth', r: 1},{t: 'rainbow', r: 1},{t: 'optimistic', r: 1}] : [];
+        case 'vulpine':
+            return easter.active ? [{t: 'cannibalize', r: 1},{t: 'rage', r: 1},{t: 'blood_thirst', r: 1},{t: 'sticky', r: 1}] : [];
         case 'elven':
             return date.getMonth() === 11 && date.getDate() >= 17 ? [{t: 'slaver', r: 2},{t: 'resourceful', r: 0.5},{t: 'small', r: 0.25}] : [];
         case 'capybara':

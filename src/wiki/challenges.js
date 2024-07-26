@@ -158,7 +158,7 @@ export function challengesPage(content){
         {   // Joyless
             let joyless = infoBoxBuilder(modes,{ name: 'modes_joyless', template: 'challenges', paragraphs: 4, break: [3,4], h_level: 2,
                 para_data: {
-                    1: [loc(`evo_challenge_joyless`),loc(`wiki_challenges_mode`),loc(`tech_theatre`),loc(`job_entertainer`)],
+                    1: [loc(`evo_challenge_joyless`),loc(`wiki_challenges_mode`),loc(`tech_theatre`)],
                     2: [loc(`job_entertainer`),loc(`morale_broadcast`),wardenLabel(),loc(`morale`)],
                     3: [loc(`wiki_challenges_mode`),actions.space.spc_red.biodome.title(),loc(`tech_theatre`)],
                     4: [loc(`wiki_challenges_scenarios_cataclysm`),loc(`wiki_challenges_scenario`)]
@@ -341,6 +341,86 @@ export function challengesPage(content){
                 }
             ]);
             subSideMenu('add',`challenges-gameplay`,'modes_sludge',loc('wiki_challenges_modes_sludge'));
+        }
+
+        {   // Orbital Decay
+            let orbit = infoBoxBuilder(modes,{ name: 'modes_orbitdecay', template: 'challenges', paragraphs: 14, break: [5,8,9,10,11,12,13,14], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_orbit_decay`)],
+                    2: [5000],
+                    5: [loc(`evo_challenge_orbit_decay`)],
+                    6: [loc(`tech_era_intergalactic`)],
+                    11: [loc(`space_moon_base_title`), 2500],
+                    12: [loc(`space_red_spaceport_title`), loc(`space_belt_station_title`), 1000],
+                    13: [loc(`interstellar_alpha_starport_title`), 100],
+                    14: [loc(`wiki_challenges_scenarios_cataclysm`)]
+                }
+            });
+            addAchievements(orbit,false,['lamentis']);
+            addRequirements(orbit,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: loc(`wiki_resets_blackhole`),
+                            color: global.stats.achieve['whitehole'] ? true : false,
+                            link: 'wiki.html#resets-prestige-blackhole'
+                        },
+                        {
+                            text: loc(`wiki_resets_ascension`),
+                            color: global.stats.achieve['ascended'] ? true : false,
+                            link: 'wiki.html#resets-prestige-ascension'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'modes_orbitdecay',loc('wiki_challenges_modes_orbitdecay'));
+        }
+
+        {   // Witch Hunter
+            let witch = infoBoxBuilder(modes,{ name: 'modes_witchhunter', template: 'challenges', paragraphs: 7, break: [4], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_witch_hunter`)],
+                    4: [`300%`,`150%`,`75%`],
+                    7: [100]
+                }
+            });
+            addAchievements(witch,false,['soul_sponge','nightmare']);
+            addRequirements(witch,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: `${loc(`wiki_universe_magic`)} ${loc(`wiki_resets_ascension`)}`,
+                            color: global.stats.achieve['ascended'] && global.stats.achieve.ascended['mg'] ? true : false,
+                            link: 'wiki.html#resets-prestige-ascension'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'modes_witchhunter',loc('wiki_challenges_modes_witchhunter'));
+        }
+
+        {   // Gravity Well
+            let gravity = infoBoxBuilder(modes,{ name: 'modes_gravity_well', template: 'challenges', paragraphs: 6, break: [4], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_gravity_well`)],
+                }
+            });
+            addAchievements(gravity,false,['escape_velocity']);
+            addRequirements(gravity,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: `${loc(`wiki_universe_heavy`)} ${loc(`wiki_resets_bioseed`)}`,
+                            color: global.stats.achieve['seeder'] && global.stats.achieve.seeder['h'] ? true : false,
+                            link: 'wiki.html#resets-prestige-bioseed'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'modes_gravity_well',loc('wiki_challenges_modes_gravity_well'));
         }
     }
     
@@ -538,7 +618,9 @@ export function challengesPage(content){
                 } 
             });
 
-            addAchievements(truth,false,['pathfinder','ashanddust','exodus','obsolete'],{ ashanddust: true, exodus: true, obsolete: true });
+            addAchievements(truth,false,
+                ['pathfinder','overlord','ashanddust','exodus','obsolete','bluepill','retired'],
+                { ashanddust: true, exodus: true, obsolete: true, bluepill: true, retired: true });
             //addAchievements(truth,true,[]);
             addRequirements(truth,[
                 {
@@ -558,6 +640,33 @@ export function challengesPage(content){
                 }
             ]);
             subSideMenu('add',`challenges-gameplay`,'scenarios_truepath',loc('wiki_challenges_scenarios_truepath'));
+        }
+
+        {   // Lone Survivor
+            let lone = infoBoxBuilder(scenarios,{ name: 'scenarios_lone_survivor', template: 'challenges', paragraphs: 4, break: [4], h_level: 2,
+                para_data: {
+                    1: [loc(`evo_challenge_lone_survivor`),loc(`wiki_challenges_scenario`),loc(`tab_tauceti`)],
+                    3: [loc(`evo_challenge_truepath`)],
+                    4: [loc(`wiki_challenges_scenario`),loc(`wiki_resets_eden`)],
+                },
+                data_link: {
+                    4: [false,'wiki.html#resets-prestige-eden']
+                }
+            });
+            addAchievements(lone,false,['adam_eve']);
+            addRequirements(lone,[
+                {
+                    text: `wiki_challenges_reqs_reset`,
+                    subreqs: [
+                        {
+                            text: loc(`wiki_resets_retired`),
+                            color: global.stats.achieve['retired'] ? true : false,
+                            link: 'wiki.html#resets-prestige-retired'
+                        }
+                    ]
+                }
+            ]);
+            subSideMenu('add',`challenges-gameplay`,'scenarios_lone_survivor',loc('wiki_challenges_scenarios_lone_survivor'));
         }
     }
 }

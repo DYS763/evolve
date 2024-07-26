@@ -455,7 +455,7 @@ Misc ---------> Main template
 
             // .meter
             @meter-low: @disabled;
-            @meter-neutral: @has-text-warning;
+            @meter-neutral: @has-text-caution;
             @meter-high: @has-text-info;
 
             // .main
@@ -577,7 +577,7 @@ Misc ---------> Main template
 
             // .meter
             @meter-low: @disabled;
-            @meter-neutral: @has-text-warning;
+            @meter-neutral: @has-text-caution;
             @meter-high: @has-text-info;
 
             // .main
@@ -822,7 +822,7 @@ Misc ---------> Main template
 
             // .meter
             @meter-low: @disabled;
-            @meter-neutral: @has-text-warning;
+            @meter-neutral: @has-text-caution;
             @meter-high: @has-text-info;
 
             // .main
@@ -930,6 +930,28 @@ Misc ---------> Main template
             color: @has-text-warning;
         }
 
+        .challenge {
+            .simButton {
+                border-color: @has-text-success;
+            }
+
+            .configList {
+                display: flex;
+                flex-flow: wrap;
+                justify-content: space-around;
+                > div {
+                    margin: 0 .25rem;
+                    width: 10rem;
+
+                    > input {
+                        height: 1.25rem;
+                        text-align: center;
+                        padding: 0;
+                    }
+                }
+            }
+        }
+
         // .popper
         .popper {
             .has-text-label {
@@ -943,6 +965,10 @@ Misc ---------> Main template
             .has-text-warning {
                 color: @popper-has-text-warning;
             }
+
+            .divide-line {
+                border-top: @secondary-border solid .0625rem;
+            }
         }
 
         .main>div.popper,
@@ -951,10 +977,11 @@ Misc ---------> Main template
             border: .0625rem solid @modal-child-popper-border;
             color: @popper;
 
-            >div:nth-child(2),
-            >div:nth-child(3),
-            >div:nth-child(4) {
+            >div {
                 border-top: solid .0625rem @modal-child-popper-border;
+            }
+            >div:first-child {
+                border-top: none;
             }
 
             .has-text-dark {
@@ -991,6 +1018,16 @@ Misc ---------> Main template
             }
             .is-primary .b-slider-fill {
                 background: @has-text-success !important;
+            }
+        }
+
+        .sliderbar.thin {
+            > span {
+                bottom: .625rem;
+            }
+            .b-slider {
+                margin-top: .5rem;
+                margin-bottom: .5rem;
             }
         }
 
@@ -1087,6 +1124,12 @@ Misc ---------> Main template
             border: @basic-button-border-hover solid .0625rem;
             background-color: @basic-button-border-hover-background;
         }
+        
+        .text-button:hover {
+            cursor: pointer;
+            color: @link-hover;
+            text-decoration: underline;
+        }
 
         // .label
         .label {
@@ -1139,6 +1182,9 @@ Misc ---------> Main template
         .current {
             border-top: @primary-border solid .0625rem;
             border-bottom: @primary-border solid .0625rem;
+        }
+        .current.infoOnly {
+            border: @primary-border solid .0625rem;
         }
 
         // UI Bars
@@ -1204,7 +1250,9 @@ Misc ---------> Main template
         }
 
         // .msgQueue
-        .msgQueue{
+        // .graphContainer
+        .msgQueue,
+        .graphContainer {
             span.special {
                 .gear {
                     fill: @div-special-gear-fill;
@@ -1313,6 +1361,25 @@ Misc ---------> Main template
                 .divider h2 {
                     background: @html-background;
                 }
+
+                .synth {
+                    box-shadow: 0 0 6px @has-text-success;
+                    > span {
+                        text-shadow: 1px 1px @has-text-success;
+                    }
+                }
+                
+                .precog {
+                    box-shadow: 0 0 6px @has-text-info;
+                    > span {
+                        text-shadow: 1px 1px @has-text-info;
+                    }
+                }
+                .cna .precog {
+                    > span {
+                        text-shadow: none !important;
+                    }
+                }
             }
 
             .government {
@@ -1342,7 +1409,7 @@ Misc ---------> Main template
             margin-left: 1rem;
 
             .circuit {
-                width: 18.5rem;
+                min-width: 18.5rem;
                 cursor: pointer;
 
                 &.inactive {
@@ -1380,6 +1447,11 @@ Misc ---------> Main template
             border-top: @secondary-border solid .0625rem;
             margin: .25rem 0 .25rem 1rem;
             padding-top: .25rem;
+        }
+
+        .powerGridHead {
+            display: flex;
+            justify-content: space-between;
         }
 
         .powerGridHeader {
@@ -1521,6 +1593,10 @@ Misc ---------> Main template
         .star5 {
             fill: @star-5-fill;
         }
+        
+        .refresh svg {
+            fill: @has-text-advanced;
+        }
 
         // -webkit-scrollbar
         .hscroll::-webkit-scrollbar-track,
@@ -1564,6 +1640,10 @@ Misc ---------> Main template
         .bldQueue {
             scrollbar-color: @webkit-scrollbar-thumb-background @webkit-scrollbar-background;
         }
+
+        .buttonList .is-selected {
+            border-color: @enabled;
+        }
     }
 }
 
@@ -1602,13 +1682,6 @@ Misc ---------> Main template
     }
 }
 
-.synth {
-    box-shadow: 0 0 6px forestgreen;
-    > span {
-        text-shadow: 2px 2px forestgreen;
-    }
-}
-
 // Dark theme
 html.dark {
     #lib.themes.dark(); // Highest priority
@@ -1623,6 +1696,22 @@ html.dark {
         .has-text-caution {
             color: #a30500 !important;
         }
+    }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
     }
 }
 
@@ -1712,6 +1801,25 @@ html.light {
     .progress::-moz-progress-bar {
         background-color: #898989;
     }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
+    }
+    .modal .buttonList .is-focused {
+        color: @primary-color !important;
+    }
 }
 
 // Night theme
@@ -1723,6 +1831,22 @@ html.night {
     // Theme specific
     .modal .action {
         #lib.mainTemplate.main.content.action();
+    }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
     }
 }
 
@@ -1766,7 +1890,6 @@ html.redgreen {
         .calendar {
             .wi-thermometer-exterior {
                 color: #00e6d2;
-                ;
             }
 
             .wi-thermometer {
@@ -1790,6 +1913,22 @@ html.redgreen {
                 #000000 10px,
                 #000000 20px);
     }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
+    }
 }
 
 // Dark Night theme
@@ -1809,6 +1948,22 @@ html.darkNight {
     textarea {
         background: @primary-color;
     }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
+    }
 }
 
 // GruvBox Light theme
@@ -1822,6 +1977,22 @@ html.gruvboxLight {
     textarea,
     .notification {
         background: @secondary-color;
+    }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
     }
 }
 
@@ -1846,6 +2017,25 @@ html.gruvboxDark {
     .current {
         border-top: @secondary-border solid .0625rem;
         border-bottom: @secondary-border solid .0625rem;
+    }
+    .current.infoOnly {
+        border: @secondary-border solid .0625rem;
+    }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
     }
 }
 
@@ -1875,6 +2065,22 @@ html.orangeSoda {
     .notification {
         background: @primary-color;
     }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
+    }
 }
 
 // Dracula theme
@@ -1898,6 +2104,25 @@ html.dracula {
     .current {
         border-top: @secondary-border solid .0625rem;
         border-bottom: @secondary-border solid .0625rem;
+    }
+    .current.infoOnly {
+        border: @secondary-border solid .0625rem;
+    }
+
+    .popper {
+        .grad-from-left {
+            background-image: linear-gradient(90deg, @has-text-danger 45%, @popper 55%);
+        }
+        .grad-from-left-warn {
+            background-image: linear-gradient(90deg, @has-text-alert 45%, @has-text-danger 55%);
+        }
+        .grad-from-right {
+            background-image: linear-gradient(90deg, @popper 45%, @has-text-danger 55%);
+        }
+    }
+
+    .modal .buttonList .is-selected {
+        border-color: @enabled;
     }
 }
 
@@ -2081,6 +2306,10 @@ a {
     padding: 0 .125rem;
     cursor: default;
 }
+.current.infoOnly {
+    border-radius: .375rem;
+    padding: 0 .5rem;
+}
 
 .factory .current svg {
     width: unset !important;
@@ -2138,12 +2367,40 @@ a {
     right: 0 !important;
 }
 
+.doublePane {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: .5rem;
+    > div {
+        width: 50%;
+    }
+
+    > div.left {
+        width: 70%;
+    }
+
+    > div.right {
+        width: 30%;
+    }
+    
+}
+
+.topPad {
+    margin-top: .5rem;
+}
+
 .main {
     margin: 1rem 1rem 1.25rem;
     overflow-y: hidden;
 
     .leftColumn {
         height: ~"calc(100vh - 2.45rem)";
+
+        .colHeader {
+            display: flex;
+            justify-content: space-between;
+        }
     }
 
     >.columns {
@@ -2387,7 +2644,7 @@ a {
         display: block;
         position: relative;
         top: -1.375rem;
-        content: "Evolving";
+        content: "进化中";
         text-align: center;
         color: #af8d07;
         margin-bottom: -1.25rem;
@@ -2415,6 +2672,10 @@ a {
             ul {
                 margin-top: .5rem;
             }
+        }
+
+        #oldTech {
+            margin-bottom: 1rem;
         }
 
         .mtab {
@@ -2554,10 +2815,19 @@ a {
             }
         }
 
+        .geck {
+            width: 100%;
+            text-align: center;
+        }
+
         .challenge {
             width: 100%;
             .actionWidth();
             text-align: center;
+
+            .simButton {
+                margin-top: 0.5rem;
+            }
         }
 
         .divider {
@@ -2751,10 +3021,19 @@ a {
             margin-top: .25rem;
         }
 
+        .observe,
         .merc {
             height: 1.25rem;
             margin-left: .25rem;
             line-height: 0rem;
+        }
+
+        .training .observe {
+            bottom: .25rem;
+        }
+
+        .bunks {
+            margin: 0.25rem 0 0.125rem;
         }
     }
 
@@ -2901,6 +3180,122 @@ a {
         margin-left: 1rem;
     }
 
+    #hellTabs>section {
+        height: 100vh;
+    }
+    
+    .hellReports {
+        display: flex;
+        justify-content: space-between;
+        
+        > div {
+            height: ~"calc(100vh - 10rem)";
+        }
+
+        .reportList {
+            top: 0;
+            width: 25%;
+            box-sizing: border-box;
+            border-right: .0625rem solid;
+            margin-right: 1rem;
+        }
+
+        .reportDisplay {
+            width: 75%;
+            font-size: .9rem;
+
+            span:not(:last-child) {
+                margin-right: .5rem;
+            }
+            
+            p {
+                margin-bottom: 0;
+            }
+            
+            .reportStats {
+                padding-bottom: .5rem;
+                border-bottom: .0625rem solid;
+                margin-bottom: .5rem;
+                
+                h2 {
+                    margin-top: 0;
+                }
+                
+                h2:not(:last-child) {
+                    margin-right: 1rem;
+                }
+            }
+
+        }
+
+        .right {
+            margin-left: .5rem;
+            padding-left: .5rem;
+            border-left: .0625rem solid;
+        }
+    }
+    
+    .hellAnalysis {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        
+        .analysisColumn {
+            width: 50%;
+            margin: 0 10px;
+        }
+            
+        .analysisColumn:not(:last-child) {
+            border-right: .0625rem solid;
+        }
+        
+        h2:not(:first-child) {
+            margin: 0 0 0 1rem;
+        }
+    }
+    
+    #hellAnalysis {
+        height: ~"calc(100vh - 10rem)";
+        
+        > div:not(:last-child) {
+            margin-bottom: .5rem;
+            border-bottom: .0625rem solid;
+            padding-bottom: .5rem;
+        }
+    }
+    
+    .graphingArea {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+        width: 100%;
+    }
+    
+    .graphContainer {
+        width: 45%;
+    }
+    
+    .graphControls {
+        div {
+            display: flex;
+            justify-content: space-between;
+            
+            h2 {
+                margin: 0;
+            }
+        }
+        
+        .graphTitle {
+            justify-content: center;
+        }
+    }
+    
+    .graph {
+        margin: 1%;
+        padding: 3%;
+        border: .0625rem solid;
+    }
+    
     .mechAssembly {
         padding-bottom: .5rem;
         margin-bottom: .5rem;
@@ -3063,7 +3458,7 @@ a {
         margin-top: 1rem;
     }
 
-    #achievePanel>span {
+    #achievePanel>div {
         width: 100%;
     }
 
@@ -3278,6 +3673,12 @@ a {
                     }
                 }
             }
+            .trash .has-addons {
+                display: initial;
+                .trashButton {
+                    cursor: pointer;
+                }
+            }
         }
     }
 
@@ -3338,6 +3739,11 @@ a {
     }
 }
 
+.graphCreator > div:not(:last-child) {
+    margin-bottom: .5rem;
+    border-bottom: .0625rem solid;
+    padding-bottom: .5rem;
+}
 
 .pylon {
     .current {
@@ -3365,6 +3771,17 @@ a {
 
     .craft-elm {
         white-space: nowrap;
+    }
+
+    .grad-from-left,
+    .grad-from-left-warn,
+    .grad-from-right {
+        background-clip: text;
+        background-size: 100%;
+        -webkit-background-clip: text;
+        -moz-background-clip: text;
+        -webkit-text-fill-color: transparent; 
+        -moz-text-fill-color: transparent;
     }
 }
 
@@ -3463,7 +3880,7 @@ a {
 }
 
 .modal .action {
-    .main .content .action();
+    &:extend(.main .content .action all);
 }
 
 .modal .actionSpace {
@@ -3493,6 +3910,15 @@ a {
     
     .msgInputApply {
         margin-top: 1rem;
+    }
+
+    .modal-background {
+        background-color: rgba(10,10,10,0);
+    }
+
+    .modal-content {
+        box-shadow: 0px 0px 1rem black;
+        border-radius: 1rem;
     }
 }
 
@@ -3567,6 +3993,12 @@ body .modal>div.popper {
     .example {
         text-align: left;
         white-space: pre;
+    }
+
+    .pGeoList {
+        .pGeo {
+            min-width: 49%;
+        }
     }
 }
 
@@ -3721,7 +4153,8 @@ span.inline {
     }
 }
 
-.industryTab {
+.industryTab,
+.psychicTab {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -3736,6 +4169,11 @@ span.inline {
     .header {
         margin-bottom: .25rem;
         padding-bottom: .25rem;
+        width: 100%;
+    }
+
+    .gap {
+        margin-top: .5rem;
         width: 100%;
     }
 }
@@ -3805,12 +4243,22 @@ span.inline {
         .atime {
             margin-left: 1rem;
         }
+
+        .infoTimer {
+            margin-right: 1rem;
+        }
+
+        .astro {
+            font-size: 0.8125rem;
+            margin-right: .25rem;
+        }
     }
 
     .planetWrap {
         margin-left: 1rem;
 
-        .universe {
+        .universe,
+        .simulation {
             border-left: 1px solid;
             margin-left: 1rem;
             padding-left: 1rem;
@@ -4260,14 +4708,36 @@ div.bigbang {
 
         .trait_selection {
             margin-left: 2rem;
-
             section {
                 margin-top: .5rem;
                 display: flex;
                 flex-wrap: wrap;
-
                 >div {
                     width: 11.5rem;
+                }
+            }
+        }
+
+        .planet_selection {
+            margin-left: 2rem;
+            section {
+                margin-top: .5rem;
+                >div {
+                    width: 11.5rem;
+                }
+            }
+        }
+
+        .res_selection {
+            margin-left: 2rem;
+            section {
+                margin-top: .5rem;
+                >div {
+                    display: flex;
+                    justify-content: space-between;
+                    >div:first-child {
+                        margin-right: 0.25rem; 
+                    }
                 }
             }
         }
@@ -4279,10 +4749,48 @@ div.bigbang {
         }
     }
 
+    .buttons {
+        display: flex;
+        justify-content: space-evenly;
+    }
+
     .reset,
     .create {
         margin-top: 1rem;
         text-align: center;
+    }
+}
+
+.listqueuestyle .main .bldQueue,
+.listqueuestyle .main .bldQueue.right,
+.numberedlistqueuestyle .main .bldQueue,
+.numberedlistqueuestyle .main .bldQueue.right,
+.bulletlistqueuestyle .main .bldQueue,
+.bulletlistqueuestyle .main .bldQueue.right {
+
+    li {
+        margin: 0.25rem 0;
+        display: list-item;
+    }
+
+    li:not(:last-child) .queued:after {
+        content: ""
+    }
+}
+
+.numberedlistqueuestyle .main .bldQueue,
+.numberedlistqueuestyle .main .bldQueue.right {
+    li {
+        list-style-type: numeric;
+        list-style-position: inside;
+    }
+}
+
+.bulletlistqueuestyle .main .bldQueue,
+.bulletlistqueuestyle .main .bldQueue.right {
+    li {
+        list-style-type: disc;
+        list-style-position: inside;
     }
 }
 
@@ -4514,4 +5022,21 @@ div.bigbang {
     position: absolute;
     bottom: 0;
     z-index: 100;
+}
+
+.refresh {
+    position: relative;
+    display: inline-block;
+    height: 1rem;
+    width: 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-left: .5rem;
+    top: .2rem;
+}
+
+.font-overlay {
+    z-index: 999;
+    position: absolute;
+    top: 1rem;
 }

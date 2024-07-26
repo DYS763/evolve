@@ -1,12 +1,15 @@
-import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame } from './vars.js';
+import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack } from './vars.js';
 import { loc } from './locale.js';
-import { races, traits, genus_traits, traitSkin } from './races.js';
+import { races, traits, genus_traits, traitSkin, fathomCheck } from './races.js';
 import { actions, actionDesc } from './actions.js';
+import { jobScale } from './jobs.js';
 import { universe_affixes } from './space.js';
 import { arpaAdjustCosts, arpaProjectCosts } from './arpa.js';
 import { gridDefs } from './industry.js';
 import { govActive } from './governor.js';
+import { govEffect } from './civics.js';
 import { universeLevel, universeAffix, alevel } from './achieve.js';
+import { astrologySign, astroVal } from './seasons.js';
 
 var popperRef = false;
 export function popover(id,content,opts){
@@ -56,10 +59,8 @@ export function popover(id,content,opts){
             if (opts.hasOwnProperty('in') && typeof opts['in'] === 'function'){
                 opts['in']({ this: this, popper: popper, id: `popper` });
             }
-            if (eventActive('firework') && (
-                (!global.race['cataclysm'] && global.city.firework.on > 0) ||
-                (global.race['cataclysm'] && global.space.firework.on > 0)
-                )){
+
+            if (eventActive('firework') && global[global.race['cataclysm'] || global.race['orbit_decayed'] ? 'space' : 'city'].firework.on > 0){
                 $(popper).append(`<span class="pyro"><span class="before"></span><span class="after"></span></span>`);
             }
         });
@@ -117,51 +118,36 @@ export function gameLoop(act){
                     clearInterval(intervals['mid_loop']);
                     clearInterval(intervals['long_loop']);
                 }
+                if (global.settings.at > 0){
+                    global.settings.at = atrack.t;
+                }
                 webWorker.s = false;
             }
             break;
         case 'start':
             {
-                let main_timer = 250;
-                let mid_timer = 1000;
-                let long_timer = 5000;
-                if (global.race['slow']){
-                    let slow = 1 + (traits.slow.vars()[0] / 100);
-                    main_timer = Math.floor(main_timer * slow);
-                    mid_timer = Math.floor(mid_timer * slow);
-                    long_timer = Math.floor(long_timer * slow);
-                }
-                if (global.race['hyper']){
-                    let fast = 1 - (traits.hyper.vars()[0] / 100);
-                    main_timer = Math.floor(main_timer * fast);
-                    mid_timer = Math.floor(mid_timer * fast);
-                    long_timer = Math.floor(long_timer * fast);
-                }
-                webWorker.mt = main_timer;
+                addATime(Date.now());
 
-                calcATime();
-                
-                if (global.settings.at > 0){
-                    main_timer = Math.ceil(main_timer * 0.5);
-                    mid_timer = Math.ceil(mid_timer * 0.5);
-                    long_timer = Math.ceil(long_timer * 0.5);
-                }
+                const timers = loopTimers();
+
+                // Used to calculate resource increase.
+                webWorker.mt = timers.webWorkerMainTimer;
 
                 if (webWorker.w){
-                    webWorker.w.postMessage({ loop: 'short', period: main_timer });
-                    webWorker.w.postMessage({ loop: 'mid', period: mid_timer });
-                    webWorker.w.postMessage({ loop: 'long', period: long_timer });
+                    webWorker.w.postMessage({ loop: 'short', period: timers.mainTimer });
+                    webWorker.w.postMessage({ loop: 'mid', period: timers.midTimer });
+                    webWorker.w.postMessage({ loop: 'long', period: timers.longTimer });
                 }
                 else {
                     intervals['main_loop'] = setInterval(function(){
                         fastLoop();
-                    }, main_timer);
+                    }, timers.mainTimer);
                     intervals['mid_loop'] = setInterval(function(){
                         midLoop();
-                    }, mid_timer);
+                    }, timers.midTimer);
                     intervals['long_loop'] = setInterval(function(){
                         longLoop();
-                    }, long_timer);
+                    }, timers.longTimer);
                 }
 
                 webWorker.s = true;
@@ -169,25 +155,77 @@ export function gameLoop(act){
     }
 }
 
-function calcATime(){
-    let dt = Date.now();
-    let timeDiff = dt - global.stats.current;
-    if (global.stats.hasOwnProperty('current') && (timeDiff >= 120000 || global.settings.at > 0)){
-        if (timeDiff >= 120000){
-            global.settings.at += Math.floor(timeDiff / 3333);
+// Computes the relative to default duration of a single loop (common for all three loop types).
+// Note that these values are not tied to the time_multiplier from fastLoop - the relative speed of time in the game
+// is controlled by loop lengths.
+export function loopTimers(){
+    // Here come any speed modifiers not related to accelerated time.
+    let modifier = 1.0;
+    if (global.race['slow']){
+        modifier *= 1 + (traits.slow.vars()[0] / 100);
+    }
+    if (global.race['hyper']){
+        modifier *= 1 - (traits.hyper.vars()[0] / 100);
+    }
+
+    // Main loop takes 250ms without any modifiers.
+    const webWorkerMainTimer = Math.floor(250 * modifier);
+    // Mid loop takes 1000ms without any modifiers.
+    const baseMidTimer = 4 * webWorkerMainTimer;
+    // Long loop (game day) takes 5000ms without any modifiers.
+    const baseLongTimer = 20 * webWorkerMainTimer;
+    // The constant by which the time is accelerated when atrack.t > 0.
+    const timeAccelerationFactor = 2;
+
+    const aTimeMultiplier = atrack.t > 0 ? 1 / timeAccelerationFactor : 1;
+    return {
+        webWorkerMainTimer,
+        mainTimer: Math.ceil(webWorkerMainTimer * aTimeMultiplier),
+        midTimer: Math.ceil(baseMidTimer * aTimeMultiplier),
+        longTimer: Math.ceil(baseLongTimer * aTimeMultiplier),
+        baseLongTimer,
+        timeAccelerationFactor,
+    };
+}
+
+// Adds accelerated time if enough time has passed since `global.stats.current`. Returns true if there was accelerated
+// time added. If the parameter is true, it will only add the time if a threshold of 120s has been reached.
+export function addATime(currentTimestamp){
+    // The second case is used for the initialization of atrack.t.
+    if (exceededATimeThreshold(currentTimestamp) || global.stats.hasOwnProperty('current') && global.settings.at > 0){
+        let timeDiff = currentTimestamp - global.stats.current;
+        // Removing any accelerated time if the value is larger than the cap.
+        if (global.settings.at > 11520){
+            global.settings.at = 0;
         }
+        // Accelerated time is added only if it is over the threshold.
+        if (timeDiff >= 120000){
+            const timers = loopTimers();
+            const gameDayDuration = timers.baseLongTimer;
+            // The number of days during which the time is accelerated (at) should take as long as 2 / 3 of paused time.
+            // at * gameDayDuration / timeAccelerationFactor = 2 / 3 * timeDiff
+            global.settings.at += Math.floor(2 / 3 * timeDiff * timers.timeAccelerationFactor / gameDayDuration);
+        }
+        // Accelerated time is capped at 8*60*60/2.5 game days.
         if (global.settings.at > 11520){
             global.settings.at = 11520;
         }
+        atrack.t = global.settings.at;
+        // Updating the current date so that it won't be counted twice (e.g., when unpausing).
+        global.stats.current = currentTimestamp;
     }
+}
+
+// Takes the current Date.now, returns whether the minimum threshold to count accelerated time has passed.
+export function exceededATimeThreshold(currentTimestamp){
+    return global.stats.hasOwnProperty('current') && currentTimestamp - global.stats.current >= 120000;
 }
 
 window.exportGame = function exportGame(){
     if (global.race['noexport']){
-        return 'Export is not available during Race Creation';
+        return `Export is not available during ${global.race['noexport']} Creation`;
     }
-    calcATime();
-    global.stats['current'] = Date.now();
+    addATime(Date.now());
     return LZString.compressToBase64(JSON.stringify(global));
 }
 
@@ -232,14 +270,17 @@ export function powerGrid(type,reset){
                 'city:transmitter','prtl_ruins:arcology','city:apartment','int_alpha:habitat','int_alpha:luxury_condo','spc_red:spaceport','spc_titan:titan_spaceport','spc_titan:electrolysis','int_alpha:starport',
                 'spc_dwarf:shipyard','spc_titan:ai_core2','spc_eris:drone_control','spc_titan:ai_colonist','int_blackhole:s_gate','gxy_gateway:starbase','spc_triton:fob',
                 'spc_enceladus:operating_base','spc_enceladus:zero_g_lab','spc_titan:sam','gxy_gateway:ship_dock','prtl_ruins:hell_forge','int_neutron:stellar_forge','int_neutron:citadel',
+                'tau_home:orbital_station','tau_red:orbital_platform','tau_gas:refueling_station','tau_home:tau_farm','tau_gas:ore_refinery','tau_gas:whaling_station',
                 'city:coal_mine','spc_moon:moon_base','spc_red:red_tower','spc_home:nav_beacon','int_proxima:xfer_station','gxy_stargate:telemetry_beacon','int_nebula:nexus','gxy_stargate:gateway_depot',
                 'spc_dwarf:elerium_contain','spc_gas:gas_mining','spc_belt:space_station','spc_gas_moon:outpost','gxy_gorddon:embassy','gxy_gorddon:dormitory','gxy_alien1:resort','spc_gas_moon:oil_extractor',
                 'int_alpha:int_factory','city:factory','spc_red:red_factory','spc_dwarf:world_controller','prtl_fortress:turret','prtl_badlands:war_drone','city:wardenclyffe','city:biolab','city:mine',
                 'city:rock_quarry','city:cement_plant','city:sawmill','city:mass_driver','int_neutron:neutron_miner','prtl_fortress:war_droid','prtl_pit:soul_forge','gxy_chthonian:excavator',
                 'int_blackhole:far_reach','prtl_badlands:sensor_drone','prtl_badlands:attractor','city:metal_refinery','gxy_stargate:gateway_station','gxy_alien1:vitreloy_plant','gxy_alien2:foothold',
-                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
+                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','tau_home:tauceti_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
                 'prtl_lake:cooling_tower','prtl_lake:harbour','prtl_spire:purifier','prtl_ruins:archaeology','prtl_pit:gun_emplacement','prtl_gate:gate_turret','prtl_pit:soul_attractor',
-                'prtl_gate:infernite_mine','int_sirius:ascension_trigger','spc_kuiper:orichalcum_mine','spc_kuiper:elerium_mine','spc_kuiper:uranium_mine','spc_kuiper:neutronium_mine','spc_dwarf:m_relay'
+                'prtl_gate:infernite_mine','int_sirius:ascension_trigger','spc_kuiper:orichalcum_mine','spc_kuiper:elerium_mine','spc_kuiper:uranium_mine','spc_kuiper:neutronium_mine','spc_dwarf:m_relay',
+                'tau_home:tau_factory','tau_home:infectious_disease_lab','tau_home:alien_outpost','tau_gas:womling_station','spc_red:atmo_terraformer','tau_star:matrix','tau_home:tau_cultural_center',
+                'prtl_pit:soul_capacitor','city:replicator'
             ];
             break;
         case 'moon':
@@ -278,6 +319,15 @@ export function powerGrid(type,reset){
         case 'eris':
             power_structs = ['spc_eris:shock_trooper','spc_eris:tank'];
             break;
+        case 'tau_home':
+            power_structs = ['tau_home:colony','tau_home:tau_factory','tau_home:mining_pit','tau_home:infectious_disease_lab'];
+            break;
+        case 'tau_red':
+            power_structs = ['tau_red:womling_village','tau_red:womling_farm','tau_red:overseer','tau_red:womling_mine','tau_red:womling_fun','tau_red:womling_lab'];
+            break;
+        case 'tau_roid':
+            power_structs = ['tau_roid:mining_ship','tau_roid:whaling_ship'];
+            break;
     }
 
     if (reset){
@@ -289,6 +339,14 @@ export function powerGrid(type,reset){
             grids[type].l.push(struct);
         }
     });
+
+    if (grids[type].l.length > power_structs.length){
+        grids[type].l.forEach(function(struct){
+            if (!power_structs.includes(struct)){
+                grids[type].l.splice(grids[type].l.indexOf(struct),1);
+            }
+        });
+    }
 }
 
 export function initMessageQueue(filters){
@@ -394,6 +452,11 @@ export function buildQueue(){
         <h2 class="has-text-success">${loc('building_queue')} ({{ | used_q }}/{{ max }})</h2>
         <span id="pausequeue" class="${global.queue.pause ? 'pause' : 'play'}" role="button" @click="pauseQueue()" :aria-label="pausedesc()"></span>
     `));
+
+    if (global.settings.queuestyle) {
+        $('#buildQueue').addClass(global.settings.queuestyle);
+
+    }
 
     let queue = $(`<ul class="buildList"></ul>`);
     $('#buildQueue').append(queue);
@@ -523,31 +586,17 @@ function dragQueue(){
 function attachQueuePopovers(){
     for (let i=0; i<global.queue.queue.length; i++){
         let id = `q${global.queue.queue[i].id}${i}`;
+        let struct = decodeStructId(global.queue.queue[i].id);
+        let isWide = struct.s[0].substring(0,4) !== 'arpa' && struct.a['wide'] ? true : false;
 
-        let c_action;
-        let segments = global.queue.queue[i].id.split("-");
-        if (segments[0].substring(0,4) === 'arpa'){
-            c_action = segments[0].substring(4);
-        }
-        else if (segments[0] === 'city' || segments[0] === 'evolution' ||segments[0] === 'starDock'){
-            c_action = actions[segments[0]][segments[1]];
-        }
-        else {
-            Object.keys(actions[segments[0]]).forEach(function (region){
-                if (actions[segments[0]][region].hasOwnProperty(segments[1])){
-                    c_action = actions[segments[0]][region][segments[1]];
-                }
-            });
-        }
-
-        let isWide = segments[0].substring(0,4) !== 'arpa' && c_action['wide'] ? true : false;
         popover(id,
             function(obj){
-                if (segments[0].substring(0,4) === 'arpa'){
-                    obj.popper.append(arpaProjectCosts(100,c_action));
+                let b_res = global.queue.queue[i].hasOwnProperty('bres') ? global.queue.queue[i].bres : false;
+                if (struct.s[0].substring(0,4) === 'arpa'){
+                    obj.popper.append(arpaProjectCosts(100,struct.a));
                 }
                 else {
-                    actionDesc(obj.popper,c_action,global[segments[0]][segments[1]],false);
+                    actionDesc(obj.popper,struct.a,global[struct.s[0]][struct.s[1]],false,false,false,b_res);
                 }
             },
             {
@@ -561,6 +610,25 @@ function attachQueuePopovers(){
             }
         );
     }
+}
+
+export function decodeStructId(id){
+    let c_action;
+    let segments = id.split("-");
+    if (segments[0].substring(0,4) === 'arpa'){
+        c_action = segments[0].substring(4);
+    }
+    else if (segments[0] === 'city' || segments[0] === 'evolution' || segments[0] === 'starDock'){
+        c_action = actions[segments[0]][segments[1]];
+    }
+    else {
+        Object.keys(actions[segments[0]]).forEach(function (region){
+            if (actions[segments[0]][region].hasOwnProperty(segments[1])){
+                c_action = actions[segments[0]][region][segments[1]];
+            }
+        });
+    }
+    return { s: segments, a: c_action };
 }
 
 const tagDebug = false;
@@ -676,6 +744,9 @@ export function costMultiplier(structure,offset,base,mutiplier,cat){
     if (global.tech['housing_reduction'] && (structure === 'basic_housing' || structure === 'cottage')){
         mutiplier -= global.tech['housing_reduction'] * 0.02;
     }
+    if (global.tech['housing_reduction'] && structure === 'captive_housing'){
+        mutiplier -= global.tech['housing_reduction'] * 0.01;
+    }
     if (structure === 'basic_housing'){
         if (global.race['solitary']){
             mutiplier -= traits.solitary.vars()[0];
@@ -717,10 +788,11 @@ export function costMultiplier(structure,offset,base,mutiplier,cat){
     return Math.round((mutiplier ** count) * base);
 }
 
-export function spaceCostMultiplier(action,offset,base,mutiplier,sector){
+export function spaceCostMultiplier(action,offset,base,mutiplier,sector,c_min){
     if (!sector){
         sector = 'space';
     }
+    c_min = c_min || 1.005;
     if (global.race.universe === 'micro'){
         mutiplier -= darkEffect('micro',true);
     }
@@ -732,17 +804,17 @@ export function spaceCostMultiplier(action,offset,base,mutiplier,sector){
     }
     if (global.race['small']){ mutiplier -= traits.small.vars()[1]; }
     if (global.race['compact']){ mutiplier -= traits.compact.vars()[1]; }
-    if (global.race.Harmony.count > 0 && global.stats.achieve[`ascended`]){
+    if (global.prestige.Harmony.count > 0 && global.stats.achieve[`ascended`]){
         mutiplier -= harmonyEffect();
     }
     let nqVal = govActive('noquestions',0);
     if (nqVal){
         mutiplier -= nqVal;
     }
-    if (mutiplier < 1.005){
-        mutiplier = 1.005;
+    if (mutiplier < c_min){
+        mutiplier = c_min;
     }
-    var count = global[sector][action] ? global[sector][action].count : 0;
+    var count = action === 'citizen' ? global['resource'][global.race.species].amount : (global[sector][action] ? global[sector][action].count : 0);
     if (offset && typeof offset === 'number'){
         count += offset;
     }
@@ -750,37 +822,37 @@ export function spaceCostMultiplier(action,offset,base,mutiplier,sector){
 }
 
 export function harmonyEffect(){
-    if (global.race.Harmony.count > 0 && global.stats.achieve[`ascended`]){
+    if (global.prestige.Harmony.count > 0 && global.stats.achieve[`ascended`]){
         let boost = 0;
         switch (global.race.universe){
             case 'heavy':
                 if (global.stats.achieve.ascended.hasOwnProperty('h')){
-                    boost = global.stats.achieve.ascended.h * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.h * global.prestige.Harmony.count;
                 }
                 break;
             case 'antimatter':
                 if (global.stats.achieve.ascended.hasOwnProperty('a')){
-                    boost = global.stats.achieve.ascended.a * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.a * global.prestige.Harmony.count;
                 }
                 break;
             case 'evil':
                 if (global.stats.achieve.ascended.hasOwnProperty('e')){
-                    boost = global.stats.achieve.ascended.e * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.e * global.prestige.Harmony.count;
                 }
                 break;
             case 'micro':
                 if (global.stats.achieve.ascended.hasOwnProperty('m')){
-                    boost = global.stats.achieve.ascended.m * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.m * global.prestige.Harmony.count;
                 }
                 break;
             case 'magic':
                 if (global.stats.achieve.ascended.hasOwnProperty('mg')){
-                    boost = global.stats.achieve.ascended.mg * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.mg * global.prestige.Harmony.count;
                 }
                 break;
             default:
                 if (global.stats.achieve.ascended.hasOwnProperty('l')){
-                    boost = global.stats.achieve.ascended.l * global.race.Harmony.count;
+                    boost = global.stats.achieve.ascended.l * global.prestige.Harmony.count;
                 }
                 break;
         }
@@ -792,20 +864,34 @@ export function harmonyEffect(){
     return 0;
 }
 
-export function timeCheck(c_action,track,detailed){
+export function timeCheck(c_action,track,detailed,reqMet){
+    reqMet = typeof reqMet === 'undefined' ? true : reqMet;
     if (c_action.cost){
         let time = 0;
         let bottleneck = false;
         let offset = track && track.id[c_action.id] ? track.id[c_action.id] : false;
         let costs = adjustCosts(c_action,offset);
         let og_track_r = track ? {} : false;
+        let og_track_rr = track ? {} : false;
         if (track){
             Object.keys(track.r).forEach(function (res){
                 og_track_r[res] = track.r[res];
             });
+            Object.keys(track.rr).forEach(function (res){
+                og_track_rr[res] = track.rr[res];
+            });
         }
+        let hasTrash = false;
+        if (global.interstellar.hasOwnProperty('mass_ejector') && global.genes['governor'] && global.tech['governor'] && global.race['governor'] && global.race.governor['g'] && global.race.governor['tasks']){
+            Object.keys(global.race.governor.tasks).forEach(function (t){
+                if (global.race.governor.tasks[t] === 'trash'){
+                    hasTrash = true;
+                }
+            });
+        }
+        let shorted = {};
         Object.keys(costs).forEach(function (res){
-            if (time >= 0 && !['Morale','HellArmy','Structs','Bool','Plasmid','AntiPlasmid','Phage','Dark','Harmony'].includes(res)){
+            if (time >= 0 && !global.prestige.hasOwnProperty(res) && !['Morale','HellArmy','Structs','Bool'].includes(res)){
                 var testCost = offset ? Number(costs[res](offset)) : Number(costs[res]());
                 if (testCost > 0){
                     let f_res = res === 'Species' ? global.race.species : res;
@@ -813,14 +899,25 @@ export function timeCheck(c_action,track,detailed){
                     let res_max = res === 'Supply' ? global.portal.purifier.sup_max : global.resource[f_res].max;
                     let res_diff = res === 'Supply' ? global.portal.purifier.diff : global.resource[f_res].diff;
 
+                    if (hasTrash && global.interstellar.mass_ejector[res]){
+                        res_diff += global.interstellar.mass_ejector[res];
+                        if (global.race.governor.config.trash.hasOwnProperty(res)){
+                            res_diff -= Math.min(global.race.governor.config.trash[res].v,global.interstellar.mass_ejector[res]);
+                        }
+                    }
+
                     if (track){
-                        res_have += res_diff * track.t;
-                        if (track.r[f_res]){
+                        res_have += res_diff * (reqMet ? track.t.t : track.t.rt);
+                        if (!track.r.hasOwnProperty(f_res)){ track.r[f_res] = 0; }
+                        if (!track.rr.hasOwnProperty(f_res)){ track.rr[f_res] = 0; }
+                        if (reqMet){
                             res_have -= Number(track.r[f_res]);
                             track.r[f_res] += testCost;
+                            track.rr[f_res] += testCost;
                         }
                         else {
-                            track.r[f_res] = testCost;
+                            res_have -= Number(track.rr[f_res]);
+                            track.rr[f_res] += testCost;
                         }
                         if (res_max >= 0 && res_have > res_max){
                             res_have = res_max;
@@ -833,12 +930,18 @@ export function timeCheck(c_action,track,detailed){
                                 bottleneck = f_res;
                                 time = r_time;
                             }
+                            shorted[f_res] = r_time;
                         }
                         else {
                             if (track){
                                 track.r = og_track_r;
+                                track.rr = og_track_rr;
                             }
                             time = -9999999;
+                            shorted[f_res] = 99999999 - res_diff;
+                            if ((shorted[bottleneck] && shorted[f_res] > shorted[bottleneck]) || !shorted[bottleneck]){
+                                bottleneck = f_res;
+                            }
                         }
                     }
                 }
@@ -851,9 +954,12 @@ export function timeCheck(c_action,track,detailed){
             else {
                 track.id[c_action.id]++;
             }
-            track.t += time;
+            if (reqMet){
+                track.t.t += time;
+            }
+            track.t.rt += time;
         }
-        return detailed ? { t: time, r: bottleneck } : time;
+        return detailed ? { t: time, r: bottleneck, s: shorted } : time;
     }
     else {
         return 0;
@@ -863,24 +969,47 @@ export function timeCheck(c_action,track,detailed){
 // This function returns the time to complete all remaining Arpa segments.
 // Note: remain is a fraction between 0 and 1 representing the fraction of
 // remaining arpa segments to be completed
-export function arpaTimeCheck(project, remain, track){
+export function arpaTimeCheck(project, remain, track, detailed){
     let offset = track && track.id[project.id] ? track.id[project.id] : false;
     let costs = arpaAdjustCosts(project.cost,offset);
     let allRemainingSegmentsTime = 0;
     let og_track_r = track ? {} : false;
+    let og_track_rr = track ? {} : false;
+    let bottleneck = false;
     if (track){
         Object.keys(track.r).forEach(function (res){
             og_track_r[res] = track.r[res];
         });
+        Object.keys(track.rr).forEach(function (res){
+            og_track_rr[res] = track.rr[res];
+        });
     }
+    let hasTrash = false;
+    if (global.interstellar.hasOwnProperty('mass_ejector') && global.genes['governor'] && global.tech['governor'] && global.race['governor'] && global.race.governor['g'] && global.race.governor['tasks']){
+        Object.keys(global.race.governor.tasks).forEach(function (t){
+            if (global.race.governor.tasks[t] === 'trash'){
+                hasTrash = true;
+            }
+        });
+    }
+
+    let shorted = {};
     Object.keys(costs).forEach(function (res){
         if (allRemainingSegmentsTime >= 0){
             let allRemainingSegmentsCost = Number(costs[res](offset)) * remain;
             if (allRemainingSegmentsCost > 0){
                 let res_have = Number(global.resource[res].amount);
+                let res_diff = global.resource[res].diff;
 
                 if (track){
-                    res_have += global.resource[res].diff * track.t;
+                    if (hasTrash && global.interstellar.mass_ejector[res]){
+                        res_diff += global.interstellar.mass_ejector[res];
+                        if (global.race.governor.config.trash.hasOwnProperty(res)){
+                            res_diff -= Math.min(global.race.governor.config.trash[res].v,global.interstellar.mass_ejector[res]);
+                        }
+                    }
+
+                    res_have += res_diff * track.t.t;
                     if (track.r[res]){
                         res_have -= Number(track.r[res]);
                         track.r[res] += allRemainingSegmentsCost;
@@ -888,23 +1017,36 @@ export function arpaTimeCheck(project, remain, track){
                     else {
                         track.r[res] = allRemainingSegmentsCost;
                     }
+                    if (track.rr[res]){
+                        track.rr[res] += allRemainingSegmentsCost;
+                    }
+                    else {
+                        track.rr[res] = allRemainingSegmentsCost;
+                    }
                     if (global.resource[res].max >= 0 && res_have > global.resource[res].max){
                         res_have = global.resource[res].max;
                     }
                 }
 
                 if (allRemainingSegmentsCost > res_have){
-                    if (global.resource[res].diff > 0){
-                        let r_time = (allRemainingSegmentsCost - res_have) / global.resource[res].diff;
+                    if (res_diff > 0){
+                        let r_time = (allRemainingSegmentsCost - res_have) / res_diff;
                         if (r_time > allRemainingSegmentsTime){
                             allRemainingSegmentsTime = r_time;
+                            bottleneck = res;
                         }
+                        shorted[res] = r_time;
                     }
                     else {
                         if (track){
                             track.r = og_track_r;
+                            track.rr = og_track_rr;
                         }
                         allRemainingSegmentsTime = -9999999;
+                        shorted[res] = 99999999 - res_diff;
+                        if ((shorted[bottleneck] && shorted[res] > shorted[bottleneck]) || !shorted[bottleneck]){
+                            bottleneck = res;
+                        }
                     }
                 }
             }
@@ -917,9 +1059,10 @@ export function arpaTimeCheck(project, remain, track){
         else {
             track.id[project.id]++;
         }
-        track.t += allRemainingSegmentsTime;
+        track.t.t += allRemainingSegmentsTime;
+        track.t.rt += allRemainingSegmentsTime;
     }
-    return allRemainingSegmentsTime;
+    return detailed ? { t: allRemainingSegmentsTime, r: bottleneck, s: shorted } : allRemainingSegmentsTime;
 }
 
 export function clearElement(elm,remove){
@@ -1000,6 +1143,10 @@ export function powerModifier(energy){
         energy *= darkEffect('antimatter');
         energy = +energy.toFixed(2);
     }
+    if (astrologySign() === 'leo'){
+        energy *= 1 + (astroVal('leo')[0] / 100);
+        energy = +energy.toFixed(2);
+    }
     return energy;
 }
 
@@ -1012,8 +1159,8 @@ export function powerCostMod(energy){
 
 export function darkEffect(universe, flag, info, inputs){
     if (!inputs) { inputs = {}; }
-    let dark = inputs.dark !== undefined ? inputs.dark : global.race.Dark.count;
-    let harmony = inputs.harmony !== undefined ? inputs.harmony : global.race.Harmony.count;
+    let dark = inputs.dark !== undefined ? inputs.dark : global.prestige.Dark.count;
+    let harmony = inputs.harmony !== undefined ? inputs.harmony : global.prestige.Harmony.count;
     let sludge = inputs.sludge !== undefined ? inputs.sludge : (global.stats.achieve['extinct_sludge'] && global.stats.achieve.extinct_sludge[universeAffix(universe)]) ? global.stats.achieve.extinct_sludge[universeAffix(universe)] : 0;
 
     switch (universe){
@@ -1118,7 +1265,7 @@ export const calc_mastery = (function(){
         if (mastery && !recalc){
             return mastery;
         }
-        else if (global.genes['challenge'] && global.genes['challenge'] >= 2){
+        else if (global.genes['challenge'] && global.genes.challenge >= 2){
             mastery = masteryType(global.race.universe);
             return mastery;
         }
@@ -1127,12 +1274,12 @@ export const calc_mastery = (function(){
 })();
 
 export function masteryType(universe,detailed){
-    if (global.genes['challenge'] && global.genes['challenge'] >= 2){
+    if (global.genes['challenge'] && global.genes.challenge >= 2){
         universe = universe || global.race.universe;
         let ua_level = universeLevel(universe);
         let m_rate = universe === 'standard' ? 0.25 : 0.15;
-        let u_rate = global.genes['challenge'] >= 3 ? 0.15 : 0.1;
-        if (global.genes['challenge'] >= 4 && universe !== 'standard'){
+        let u_rate = global.genes.challenge >= 3 ? 0.15 : 0.1;
+        if (global.genes.challenge >= 4 && universe !== 'standard'){
             m_rate += 0.05;
             u_rate -= 0.05;
         }
@@ -1148,12 +1295,17 @@ export function masteryType(universe,detailed){
             m_rate *= 1 - (traits.ooze.vars()[2] / 100);
             u_rate *= 1 - (traits.ooze.vars()[2] / 100);
         }
+        let perk_rank = global.stats.feat['grandmaster'] && global.stats.achieve['corrupted'] && global.stats.achieve.corrupted.l > 0 ? Math.min(global.stats.achieve.corrupted.l,global.stats.feat['grandmaster']) : 0;
+        if (perk_rank > 0){
+            m_rate *= 1 + (perk_rank / 100);
+            u_rate *= 1 + (perk_rank / 100);
+        }
         let m_mastery = ua_level.aLvl * m_rate;
         let u_mastery = 0;
         if (universe !== 'standard'){
             u_mastery = ua_level.uLvl * u_rate;
         }
-        if (global.genes['challenge'] && global.genes['challenge'] >= 5 && global.race.hasOwnProperty('mastery')){
+        if (global.genes.challenge >= 5 && global.race.hasOwnProperty('mastery')){
             m_mastery *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
             u_mastery *= 1 + (traits.mastery.vars()[0] * global.race.mastery / 100);
         }
@@ -1235,6 +1387,87 @@ export function challenge_multiplier(value,type,decimals,inputs){
     }
 }
 
+export function getResetConstants(type, inputs){
+    if (!inputs) { inputs = {}; }
+    let rc = {
+        pop_divisor: 999,
+        k_inc: 1000000,
+        k_mult: 100,
+        phage_mult: 0,
+        plasmid_cap: 150,
+    }
+
+    switch (type){
+        case 'mad':
+            rc.pop_divisor = 3;
+            rc.k_inc = 100000;
+            rc.k_mult = 1.1;
+            rc.plasmid_cap = 150;
+            if (inputs.synth){
+                rc.pop_divisor = 5;
+                rc.k_inc = 125000;
+                rc.plasmid_cap = 100;
+            }
+            break;
+        case 'cataclysm':
+        case 'bioseed':
+            rc.pop_divisor = 3;
+            rc.k_inc = 50000;
+            rc.k_mult = 1.015;
+            rc.phage_mult = 1;
+            rc.plasmid_cap = 400;
+            break;
+        case 'ai':
+            rc.pop_divisor = 2.5;
+            rc.k_inc = 45000;
+            rc.k_mult = 1.014;
+            rc.phage_mult = 2;
+            rc.plasmid_cap = 600;
+            break;
+        case 'vacuum':
+        case 'bigbang':
+            rc.pop_divisor = 2.2;
+            rc.k_inc = 40000;
+            rc.k_mult = 1.012;
+            rc.phage_mult = 2.5;
+            rc.plasmid_cap = 800;
+            break;
+        case 'ascend':
+        case 'terraform':
+            rc.pop_divisor = 1.15;
+            rc.k_inc = 30000;
+            rc.k_mult = 1.008;
+            rc.phage_mult = 4;
+            rc.plasmid_cap = 2000;
+            break;
+        case 'matrix':
+            rc.pop_divisor = 1.5;
+            rc.k_inc = 32000;
+            rc.k_mult = 1.01;
+            rc.phage_mult = 3.2;
+            rc.plasmid_cap = 1800;
+            break;
+        case 'retired':
+            rc.pop_divisor = 1.15;
+            rc.k_inc = 32000;
+            rc.k_mult = 1.006;
+            rc.phage_mult = 3.2;
+            rc.plasmid_cap = 1800;
+            break;
+        case 'eden':
+            rc.pop_divisor = 1;
+            rc.k_inc = 18000;
+            rc.k_mult = 1.004;
+            rc.phage_mult = 2.5;
+            rc.plasmid_cap = 1800;
+            break;
+        default:
+            rc.unknown = true;
+            break;
+    }
+    return rc;
+}
+
 export function calcPrestige(type,inputs){
     let gains = {
         plasmid: 0,
@@ -1246,6 +1479,7 @@ export function calcPrestige(type,inputs){
     };
 
     if (!inputs) { inputs = {}; }
+    if (inputs.synth !== undefined) inputs.synth = races[global.race.species].type === 'synthetic';
     let challenge = inputs.genes;
     let universe = inputs.uni;
     universe = universe || global.race.universe;
@@ -1255,7 +1489,7 @@ export function calcPrestige(type,inputs){
         let garrisoned = global.civic.hasOwnProperty('garrison') ? global.civic.garrison.workers : 0;
         for (let i=0; i<3; i++){
             if (global.civic.foreign[`gov${i}`].occ){
-                garrisoned += global.civic.govern.type === 'federation' ? 15 : 20;
+                garrisoned += jobScale(global.civic.govern.type === 'federation' ? 15 : 20);
             }
         }
         if (global.race['high_pop']){
@@ -1274,55 +1508,13 @@ export function calcPrestige(type,inputs){
         }
     }
 
-    let pop_divisor = 999;
-    let k_inc = 1000000;
-    let k_mult = 100;
-    let phage_mult = 0;
-    let plasmid_cap = 150;
+    let rc = getResetConstants(type, inputs);
+    let pop_divisor = rc.pop_divisor;
+    let k_inc = rc.k_inc;
+    let k_mult = rc.k_mult;
+    let phage_mult = rc.phage_mult;
+    let plasmid_cap = rc.plasmid_cap;
 
-    switch (type){
-        case 'mad':
-            pop_divisor = 3;
-            k_inc = 100000;
-            k_mult = 1.1;
-            plasmid_cap = 150;
-            if (inputs.synth !== undefined ? inputs.synth : races[global.race.species].type === 'synthetic'){
-                pop_divisor = 5;
-                k_inc = 125000;
-                plasmid_cap = 100;
-            }
-            break;
-        case 'cataclysm':
-        case 'bioseed':
-            pop_divisor = 3;
-            k_inc = 50000;
-            k_mult = 1.015;
-            phage_mult = 1;
-            plasmid_cap = 400;
-            break;
-        case 'ai':
-            pop_divisor = 2.5;
-            k_inc = 45000;
-            k_mult = 1.014;
-            phage_mult = 2;
-            plasmid_cap = 600;
-            break;
-        case 'vacuum':
-        case 'bigbang':
-            pop_divisor = 2.2;
-            k_inc = 40000;
-            k_mult = 1.012;
-            phage_mult = 2.5;
-            plasmid_cap = 800;
-            break;
-        case 'ascend':
-            pop_divisor = 1.15;
-            k_inc = 30000;
-            k_mult = 1.008;
-            phage_mult = 4;
-            plasmid_cap = 2000;
-            break;
-    }
 
     if (challenge !== undefined){
         plasmid_cap = Math.floor(plasmid_cap * (1 + (challenge + (inputs.tp ? 1 : 0)) / 8));
@@ -1342,6 +1534,9 @@ export function calcPrestige(type,inputs){
 
         if (global.race['cataclysm']){
             new_plasmid += 300;
+        }
+        else if (global.race['lone_survivor']){
+            new_plasmid += 800;
         }
 
         gains.plasmid = challenge_multiplier(new_plasmid,type,false,inputs);
@@ -1379,7 +1574,7 @@ export function calcPrestige(type,inputs){
     }
 
 
-    if (type === 'ascend' || type === 'descend'){
+    if (['ascend','descend','terraform'].includes(type)){
         let harmony = 1;
         if (challenge === undefined){
             harmony = alevel();
@@ -1391,7 +1586,7 @@ export function calcPrestige(type,inputs){
             harmony = challenge + 1;
         }
 
-        if (type === 'ascend'){
+        if (type === 'ascend' || type === 'terraform'){
             switch (universe){
                 case 'micro':
                     harmony *= 0.25;
@@ -1433,7 +1628,7 @@ export function calcPrestige(type,inputs){
 }
 
 export function adjustCosts(c_action, offset, wiki){
-    let costs = c_action.cost;
+    let costs = c_action.cost || {};
     if ((costs['RNA'] || costs['DNA']) && global.genes['evolve']){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
@@ -1443,9 +1638,12 @@ export function adjustCosts(c_action, offset, wiki){
         });
         return newCosts;
     }
+    costs = bloatAdjust(costs, offset, wiki);
     costs = truthAdjust(costs, c_action, offset, wiki);
+    costs = loneAdjust(costs, offset, wiki);
     costs = inflationAdjust(costs, offset, wiki);
     costs = technoAdjust(costs, offset, wiki);
+    costs = flierAdjust(costs, offset, wiki);
     costs = kindlingAdjust(costs, offset, wiki);
     costs = smolderAdjust(costs, offset, wiki);
     costs = scienceAdjust(costs, offset, wiki);
@@ -1453,6 +1651,48 @@ export function adjustCosts(c_action, offset, wiki){
     costs = extraAdjust(costs, offset, wiki);
     costs = heavyAdjust(costs, offset, wiki);
     return craftAdjust(costs, offset, wiki);
+}
+
+function bloatAdjust(costs, offset, wiki){
+    if (global.race['bloated']){
+        let adjustRate = 1 + (traits.bloated.vars()[0] / 100);
+        var newCosts = {};
+        Object.keys(costs).forEach(function (res){
+            if (['Food','Lumber','Stone','Furs','Copper','Iron','Aluminium','Cement','Coal','Steel','Titanium','Alloy','Polymer','Iridium'].includes(res)){
+                newCosts[res] = function(){ return costs[res](offset, wiki) * adjustRate; }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
+}
+
+function loneAdjust(costs, offset, wiki){
+    if (global.race['lone_survivor']){
+        var newCosts = {};
+        Object.keys(costs).forEach(function (res){
+            if (['Structs','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+            else if (['Knowledge'].includes(res)){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 0.5); }
+            }
+            else if (['Money'].includes(res)){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 0.22); }
+            }
+            else if (['Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Quantium'].includes(res)){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 0.14); }
+            }
+            else {
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 0.28); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
 }
 
 function truthAdjust(costs, c_action, offset, wiki){
@@ -1511,11 +1751,12 @@ function extraAdjust(costs, offset, wiki){
 
 function technoAdjust(costs, offset, wiki){
     if (global.civic.govern.type === 'technocracy'){
-        let adjust = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 1 : 1.01 ) : 1.02;
+        let adjust = 1 + (govEffect.technocracy()[1] / 100);
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
             if (res === 'Knowledge'){
-                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * 0.92); }
+                let kAdjust = 1 - (govEffect.technocracy()[0] / 100);
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * kAdjust); }
             }
             else if (res === 'Money' || res === 'Structs' || res === 'Custom'){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -1531,7 +1772,8 @@ function technoAdjust(costs, offset, wiki){
 
 function scienceAdjust(costs, offset, wiki){
     let pragVal = govActive('pragmatist',1);
-    if ((global.race['smart'] || global.race['dumb'] || pragVal) && costs['Knowledge']){
+    let fathom = fathomCheck('gnome');
+    if ((global.race['smart'] || global.race['dumb'] || pragVal || fathom > 0) && costs['Knowledge']){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
             if (res === 'Knowledge'){
@@ -1539,6 +1781,9 @@ function scienceAdjust(costs, offset, wiki){
                     let cost = costs[res](offset, wiki);
                     if (global.race['smart']){
                         cost *= 1 - (traits.smart.vars()[0] / 100);
+                    }
+                    if (fathom > 0){
+                        cost *= 1 - (traits.smart.vars(1)[0] / 100 * fathom);
                     }
                     if (global.race['dumb']){
                         cost *= 1 + (traits.dumb.vars()[0] / 100);
@@ -1566,7 +1811,7 @@ function smolderAdjust(costs, offset, wiki){
                 let adjustRate = res === 'Plywood' ? 2 : 1;
                 newCosts['Chrysotile'] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
             }
-            else if (['HellArmy','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
+            else if (['HellArmy','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe','Mana','Energy'].includes(res)){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else {
@@ -1598,15 +1843,66 @@ function kindlingAdjust(costs, offset, wiki){
         });
         return newCosts;
     }
+    else if (global.race['unfathomable'] && global.city['captive_housing']){
+        let fathom = fathomCheck('entish');
+        if (fathom > 0){
+            var newCosts = {};
+            let adjustRate = 1 - (0.4 * fathom);
+            Object.keys(costs).forEach(function (res){
+                if (res === 'Lumber' && res === 'Plywood'){
+                    newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
+                }
+                else {
+                    newCosts[res] = function(){ return costs[res](offset, wiki); }
+                }
+            });
+            return newCosts;
+        }
+    }
+    return costs;
+}
+
+function flierAdjust(costs, offset, wiki){
+    if (global.race['flier'] && (costs['Stone'] || costs['Cement'])){
+        var newCosts = {};
+        let adjustRate = 1 - (traits.flier.vars()[0] / 100);
+        Object.keys(costs).forEach(function (res){
+            if (res === 'Stone' && !costs['Cement']){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
+            }
+            else if (res === 'Cement'){
+                if (costs['Stone']){
+                    newCosts['Stone'] = function(){ return Math.round((costs['Stone'](offset, wiki) * adjustRate) + (costs[res](offset, wiki) * 1.8 * adjustRate)) || 0; }
+                }
+                else {
+                    newCosts['Stone'] = function(){ return Math.round(costs[res](offset, wiki) * 1.75 * adjustRate); }
+                }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
     return costs;
 }
 
 function craftAdjust(costs, offset, wiki){
-    if (global.race['hollow_bones'] && (costs['Plywood'] || costs['Brick'] || costs['Wrought_Iron'] || costs['Sheet_Metal'] || costs['Mythril'] || costs['Aerogel'] || costs['Nanoweave'] || costs['Scarletite'] || costs['Quantium'])){
+    let fathom = fathomCheck('pterodacti');
+    if ((global.race['hollow_bones'] || fathom > 0) && (costs['Plywood'] || costs['Brick'] || costs['Wrought_Iron'] || costs['Sheet_Metal'] || costs['Mythril'] || costs['Aerogel'] || costs['Nanoweave'] || costs['Scarletite'] || costs['Quantium'])){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
             if (res === 'Plywood' || res === 'Brick' || res === 'Wrought_Iron' || res === 'Sheet_Metal' || res === 'Mythril' || res === 'Aerogel' || res === 'Nanoweave' || res === 'Scarletite' || res === 'Quantium'){
-                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * (1 - (traits.hollow_bones.vars()[0] / 100))); }
+                newCosts[res] = function(){
+                    let cost = costs[res](offset, wiki);
+                    if (global.race['hollow_bones']){
+                        cost *= 1 - (traits.hollow_bones.vars()[0] / 100);
+                    }
+                    if (fathom > 0){
+                        cost *= 1 - (traits.hollow_bones.vars(3)[0] / 100 * fathom);
+                    }
+                    return Math.round(cost);
+                }
             }
             else {
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -1728,6 +2024,10 @@ export function svgIcons(icon){
             return `<path style="stroke-linejoin:round;fill-rule:evenodd;stroke-linecap:round;stroke-width:1pt" transform="matrix(1.0594 0 0 1.0594 -1.4619 -1.891)" d="m8.375 6.0625c-1.108 0-2 0.892-2 2v44.844c0 1.108 0.892 2 2 2h43.062c1.108 0 2-0.892 2-2v-40.25l-6.625-6.5935h-38.437z"/><path style="fill-rule:evenodd;stroke:#333333;stroke-width:3.125" d="m15.914 4.6592v13.242c0 1.353 1.188 2.442 2.665 2.442h17.908c1.477 0 2.666-1.089 2.666-2.442v-13.242l-23.239 0.0002z"/><rect style="fill-rule:evenodd;stroke:#333333;stroke-width:1.875;fill:#7f7f7f" rx="1.3992" height="9.0411" width="6.5871" y="7.9428" x="19.516"/><path style="stroke-linejoin:round;stroke:#333333;stroke-linecap:round;stroke-width:2.9499;fill:none" transform="matrix(1.0594 0 0 1.0594 -1.4619 -1.891)" d="m8.375 6.0625c-1.108 0-2 0.892-2 2v44.844c0 1.108 0.892 2 2 2h43.063c1.108 0 2-0.892 2-2v-40.25l-6.626-6.5935h-38.437z"/><rect style="stroke-linejoin:round;fill-rule:evenodd;fill-opacity:.75;stroke:#333333;stroke-linecap:round;stroke-width:1.875;fill:#d9d9d9" rx="2.0351" height="28.611" width="41.747" y="24.011" x="9.3572"/>`;
         case 'slime':
             return `<path d="m 163.57665,478.9939 c -24.3084,-14.10129 20.22363,-31.85842 11.65433,-4.63671 -2.25318,3.00162 -7.82305,7.72231 -11.65433,4.63671 z m 183.28848,-20.78849 c -13.14775,-2.33976 -17.9053,-20.06385 -30.08968,-21.98687 -22.97473,-4.1326 -43.31948,4.50415 -60.96133,14.07232 -10.51557,-9.2598 -14.59557,-41.08981 -37.2545,-23.17861 -11.85767,5.10112 -26.09006,37.76324 -36.43017,17.92471 12.26335,-16.11595 13.61823,-38.69297 -2.50565,-53.85402 -9.07864,-25.52803 -23.49108,-2.96585 -38.11197,-0.47002 -19.8545,-7.00156 2.24982,-17.9895 4.45519,-28.45906 -19.65784,-4.47223 -49.62704,-12.5375 -40.5684,-40.71986 -1.26199,-17.36206 -23.24425,-4.54888 -33.79057,-10.24131 -16.397164,-2.8794 -10.496155,-27.34616 7.05826,-18.74942 17.51815,3.39812 57.60888,-4.46006 32.23855,-26.61982 -15.76203,-15.19509 -36.4094,-26.72533 -59.007044,-19.4613 -11.307053,7.56151 -45.1768893,3.79939 -35.022881,-13.82 19.669671,-10.71178 41.22779,3.85343 62.546315,-0.41167 22.65923,2.25062 56.7955,2.92211 46.56505,-30.26243 -9.26561,-9.78026 -32.91651,-30.82361 -7.38635,-36.30014 15.55413,-0.21331 30.86842,10.43077 44.60082,1.80665 13.21274,-12.4417 16.76714,-39.42827 -0.38632,-50.47828 -10.80648,-8.45672 -38.40916,-16.85432 -19.84938,-33.902321 19.3853,1.0478 24.20642,27.651681 41.16885,36.150751 18.51916,13.61049 50.95835,7.17401 61.80278,-12.78899 1.96924,-16.748651 -11.63994,-42.923241 12.50617,-47.433179 23.30938,6.353523 -1.66539,45.643539 28.90133,45.889059 25.56358,7.85631 39.61883,-14.011941 60.08396,-22.018981 30.2942,9.28422 -29.51698,37.027991 8.87108,40.322941 23.1761,5.46703 39.02059,-17.52132 48.06887,-35.414291 3.46612,-8.21607 5.50233,-27.606776 17.85058,-22.515508 13.24499,18.081808 1.86915,39.536319 -11.35616,52.268479 -10.16764,16.26152 9.46107,29.60498 13.1601,44.13081 1.34227,15.68577 3.95064,63.23778 25.50577,34.08371 11.20788,-16.92925 39.90908,7.29467 12.92634,13.29565 -21.85133,2.38884 -8.74246,30.90525 8.32053,31.55607 15.1609,9.00237 41.9144,-1.77662 49.85037,17.11456 -3.05446,22.09256 -29.22362,4.29383 -44.75131,8.75457 -26.49789,0.12599 -17.43484,26.88046 -7.77732,42.51035 9.76698,19.89884 31.2054,31.76298 48.60822,44.93826 18.15985,15.69828 -12.65871,32.16282 -20.76404,11.87903 -12.49108,-15.20596 -28.1879,-37.35636 -51.04288,-25.58585 -20.34079,12.10319 -3.81472,46.51527 -27.16948,55.99789 -13.78208,11.17439 14.82012,29.49627 21.31808,39.46489 19.96655,7.40908 3.994,34.09436 -8.11021,13.7541 -12.62478,-14.46055 -23.96764,-30.13593 -42.7521,-37.32729 -23.81689,-5.8173 -31.20602,23.70722 -28.16799,40.3062 -2.51049,4.62673 -8.09576,6.80908 -13.15148,5.77822 z M 87.72089,429.74028 c -13.99202,-18.69723 22.26227,-31.47183 36.51218,-33.31233 -8.19425,13.17742 -16.8232,38.48212 -36.51218,33.31233 z m 395.16287,-237.9861 c 3.08236,-15.41161 26.50512,-16.98533 35.11966,-30.10934 15.44768,-13.89517 30.96141,21.08476 5.35868,18.73778 -12.78887,2.57515 -28.00886,12.6114 -40.47834,11.37156 z M 416.42257,45.68923 c -11.99704,-10.851863 4.40672,-47.6817285 9.83431,-21.44264 1.89744,5.3401 -6.99834,36.270722 -9.83431,21.44264 z"/>`;
+        case 'lightning':
+            return `<g transform="translate(0 -1036.4)">
+            <path style="stroke-linejoin:round;stroke:#ffbf00;stroke-width:.25;" d="m3.4724 8.5186 3.0305-7.0711h6.9448l-5.0192 5.0823h4.1353l-8.1128 9.0914 2.0834-7.1342z" transform="translate(0 1036.4)"/>
+          </g>`;
     }
 }
 
@@ -1801,6 +2101,8 @@ export function svgViewBox(icon){
             return `0 0 60 60`;
         case 'slime':
             return `0 0 552 495`;
+        case 'lightning':
+            return `0 0 16 16`;
     }
 }
 
@@ -1831,6 +2133,8 @@ export function getBaseIcon(name,type){
                 return 'floppy';
             case 'slime_lord':
                 return 'slime';
+            case 'annihilation':
+                return 'lightning';
             case 'friday':
                 return 'mask';
             case 'valentine':
@@ -1886,20 +2190,20 @@ export function easterEggBind(id){
         let year = date.getFullYear();
         if (!global.special.egg[year][`egg${id}`]){
             global.special.egg[year][`egg${id}`] = true;
-            if (id <= 10){
+            if (id <= 12){
                 if (global.race.universe === 'antimatter'){
-                    global.race.Plasmid.anti += 10;
-                    global.stats.antiplasmid += 10;
-                    messageQueue(loc('city_egg_msg',[10,loc('resource_AntiPlasmid_plural_name')]),'success',false,['events']);
+                    global.prestige.AntiPlasmid.count += 9;
+                    global.stats.antiplasmid += 9;
+                    messageQueue(loc('city_egg_msg',[9,loc('resource_AntiPlasmid_plural_name')]),'success',false,['events']);
                 }
                 else {
-                    global.race.Plasmid.count += 10;
-                    global.stats.plasmid += 10;
-                    messageQueue(loc('city_egg_msg',[10,loc('resource_Plasmid_plural_name')]),'success',false,['events']);
+                    global.prestige.Plasmid.count += 9;
+                    global.stats.plasmid += 9;
+                    messageQueue(loc('city_egg_msg',[9,loc('resource_Plasmid_plural_name')]),'success',false,['events']);
                 }
             }
             else {
-                global.race.Phage.count += 4;
+                global.prestige.Phage.count += 4;
                 global.stats.phage += 4;
                 messageQueue(loc('city_egg_msg',[4,loc('resource_Phage_name')]),'success',false,['events']);
             }
@@ -1929,18 +2233,18 @@ export function trickOrTreatBind(id,trick){
         if (!global.special.trick[year][`${tot}${id}`]){
             global.special.trick[year][`${tot}${id}`] = true;
             if (trick){
-                global.race.Phage.count += 2;
+                global.prestige.Phage.count += 2;
                 global.stats.phage += 2;
                 messageQueue(loc('city_ghost_msg',[2,loc('resource_Phage_name')]),'success',false,['events']);
             }
             else {
                 if (global.race.universe === 'antimatter'){
-                    global.race.Plasmid.anti += 13;
+                    global.prestige.AntiPlasmid.count += 13;
                     global.stats.antiplasmid += 13;
                     messageQueue(loc('city_trick_msg',[13,loc('resource_AntiPlasmid_plural_name')]),'success',false,['events']);
                 }
                 else {
-                    global.race.Plasmid.count += 13;
+                    global.prestige.Plasmid.count += 13;
                     global.stats.plasmid += 13;
                     messageQueue(loc('city_trick_msg',[13,loc('resource_Plasmid_plural_name')]),'success',false,['events']);
                 }
@@ -1956,7 +2260,7 @@ export function trickOrTreatBind(id,trick){
 }
 
 function single_emblem(achieve,size,icon,iconName,fool,uAffix){
-    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg></p>` : '';
+    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg><span class="is-sr-only">${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}</span></p>` : '';
 }
 
 export function format_emblem(achieve,size,baseIcon,fool,universe){
@@ -1999,6 +2303,13 @@ export function format_emblem(achieve,size,baseIcon,fool,universe){
     }
 
     return emblem;
+}
+
+export function fibonacci(num, memo){
+    memo = memo || {};
+    if (memo[num]) return memo[num];
+    if (num <= 1) return 1;
+    return memo[num] = fibonacci(num - 1, memo) + fibonacci(num - 2, memo);
 }
 
 export function randomKey(obj){
@@ -2077,6 +2388,12 @@ export function updateResetStats(){
     global.stats.died = 0;
     global.stats.tsac += global.stats.sac;
     global.stats.sac = 0;
+    global.stats.tcattle += global.stats.cattle;
+    global.stats.cattle = 0;
+    global.stats.tmurders += global.stats.murders;
+    global.stats.murders = 0;
+    global.stats.tpsykill += global.stats.psykill;
+    global.stats.psykill = 0;
 }
 
 export function deepClone(obj){
@@ -2110,20 +2427,25 @@ export function deepClone(obj){
 }
 
 // function library
-export function flib(func,val){
+export function flib(func,val,val2){
     switch (func){
         case 'reverse':
-            {
-                let str = val.toLowerCase().split('').reverse().join('');
-                return str.charAt(0).toUpperCase() + str.slice(1);
-            }
+        {
+            let str = val.toLowerCase().split('').reverse().join('');
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
         case 'name':
-            {
-                if (eventActive('fool',2021)){
-                    return flib('reverse',races[global.race.species].name);
-                }
-                return races[global.race.species].name;
+        {
+            if (eventActive('fool',2021)){
+                return flib('reverse',races[global.race.species].name);
             }
+            return races[global.race.species].name;
+        }
+        case 'curve':
+        {   
+            let exp = val2 || 1.5;
+            return 1-((1-(val))**exp);
+        }
     }
     return false;
 }
@@ -2189,7 +2511,7 @@ export function eventActive(event,val){
             {
                 const date = new Date();
                 if (!global.settings.boring && date.getMonth() === 6 && [1,2,3,4].includes(date.getDate()) ){
-                    let region = global.race['cataclysm'] ? 'space' : 'city';
+                    let region = global.race['cataclysm'] || global.race['orbit_decayed'] ? 'space' : 'city';
                     if (!global[region].hasOwnProperty('firework')){
                         global[region]['firework'] = {
                             count: 0,
@@ -2235,12 +2557,19 @@ export function getEaster(){
         global.special.egg[year]['egg15'] = false;
     }
 
+    if (global.special.egg.hasOwnProperty(year) && !global.special.egg[year].hasOwnProperty('egg16')){
+        global.special.egg[year]['egg16'] = false;
+        global.special.egg[year]['egg17'] = false;
+        global.special.egg[year]['egg18'] = false;
+    }
+
+    // `month` is the 1-12 month when easter ends, `day` the 1-31 day it begins. Easter event has constant number of days.
 	let f = Math.floor,
 		// Golden Number - 1
 		G = year % 19,
 		C = f(year / 100),
 		// related to Epact
-		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
+		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
 		// number of days from 21 March to the Paschal full moon
 		I = H - f(H/28) * (1 - f(29/(H + 1)) * f((21-G)/11)),
 		// weekday for the Paschal full moon
@@ -2279,12 +2608,18 @@ export function getEaster(){
         easter.solveDate[1] -= easter.solveDate[0] === 2 ? 31 : 30;
         easter.solveDate[0]++;
     }
-    if (date.getMonth() >= easter.date[0] && date.getDate() >= easter.date[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+
+    let cur_day = date.getDate();
+    let cur_month = date.getMonth();
+
+    const isAfterBeginning = cur_month > easter.date[0] || (cur_month === easter.date[0] && cur_day >= easter.date[1]);
+    const isBeforeEnd = cur_month < easter.endDate[0] || (cur_month === easter.endDate[0] && cur_day <= easter.endDate[1]);
+    if (isAfterBeginning && isBeforeEnd){
         easter.active = true;
-        if (date.getMonth() >= easter.hintDate[0] && date.getDate() >= easter.hintDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.hintDate[0] && cur_day >= easter.hintDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.hint = true;
         }
-        if (date.getMonth() >= easter.solveDate[0] && date.getDate() >= easter.solveDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.solveDate[0] && cur_day >= easter.solveDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.solve = true;
         }
     }
@@ -2360,17 +2695,17 @@ export function getShrineBonus(type) {
 	if (shrineBonusActive()){
 		switch(type){
 			case 'metal':
-				shrine_bonus.mult += +(global.city.shrine.metal / 100);
+				shrine_bonus.mult += +(global.city.shrine.metal / 100 * traits.magnificent.vars()[3]);
 				break;
 			case 'tax':
-				shrine_bonus.mult += +(global.city.shrine.tax / 100);
+				shrine_bonus.mult += +(global.city.shrine.tax / 100 * traits.magnificent.vars()[2]);
 				break;
 			case 'know':
-                shrine_bonus.add += +(global.city.shrine.know * 400);
-                shrine_bonus.mult += +(global.city.shrine.know * 3 / 100);
+                shrine_bonus.add += +(global.city.shrine.know * traits.magnificent.vars()[0]);
+                shrine_bonus.mult += +(global.city.shrine.know * traits.magnificent.vars()[1] / 100);
 				break;
 			case 'morale':
-				shrine_bonus.add += global.city.shrine.morale;
+				shrine_bonus.add += global.city.shrine.morale * traits.magnificent.vars()[4];
 				break;
 			default:
 				break;
@@ -2394,6 +2729,10 @@ const valAdjust = {
     blood_thirst: true,
     selenophobia: true,
     hooved: true,
+    anthropophagite: true,
+    unfathomable: false,
+    darkness: false,
+    living_tool: false,
 };
 
 function getTraitVals(trait,rank){
@@ -2405,29 +2744,86 @@ function getTraitVals(trait,rank){
         else if (trait === 'hivemind' && global.race['high_pop']){
             vals = [vals[0] * traits.high_pop.vars()[0]];
         }
-        else if (trait === 'imitation') {
+        else if (trait === 'imitation'){
             vals.push(races[global.race['srace'] || 'protoplasm'].name);
         }
-        else if (trait === 'elusive') {
+        else if (trait === 'elusive'){
             vals = [Math.round(((1/30)/(1/(30+vals[0]))-1)*100)];
         }
-        else if (trait === 'chameleon') {
+        else if (trait === 'chameleon'){
             vals = [vals[0], Math.round(((1/30)/(1/(30+vals[1]))-1)*100)];
         }
-        else if (trait === 'blood_thirst') {
+        else if (trait === 'blood_thirst'){
             vals = [Math.ceil(Math.log2(vals[0]))];
         }
-        else if (trait === 'selenophobia') {
+        else if (trait === 'selenophobia'){
             vals = [14 - vals[0], vals[0]];
         }
-        else if (trait === 'hooved') {
-            vals = [global.race['sludge'] ? loc('resource_Beaker_name') : loc('resource_Horseshoe_name')];
+        else if (trait === 'hooved'){
+            vals.unshift(hoovedRename());
+        }
+        else if (trait === 'anthropophagite'){
+            vals = [vals[0] * 10000];
         }
         else if (!valAdjust[trait]){
             vals = [];
         }
     }
     return vals;
+}
+
+export function hoovedRename(style){
+    if (global.race['sludge']){
+        return style ? 'craft' : loc('resource_Beaker_name');
+    }
+    else if (global.race.species === 'cath'){
+        return style ? 'craft' : loc('resource_Box_name');
+    }
+    else if (global.race.species === 'wolven'){
+        return style ? 'craft' : loc('resource_ChewToy_name');
+    }
+    else if (global.race.species === 'dracnid'){
+        return style ? 'craft' : loc('resource_Hoard_name');
+    }
+    else if (global.race.species === 'seraph'){
+        return style ? 'forge' : loc('resource_Halo_name');
+    }
+    else if (global.race.species === 'cyclops'){
+        return style ? 'craft' : loc('resource_Monocle_name');
+    }
+    else if (global.race.species === 'kobold'){
+        return style ? 'craft' : loc('resource_Candle_name');
+    }
+    else if (global.race.species === 'tuskin'){
+        return style ? 'craft' : loc('resource_Goggles_name');
+    }
+    else if (global.race.species === 'sharkin'){
+        return style ? 'craft' : loc('resource_ToothSharpener_name');
+    }
+    else if (races[global.race.species].type === 'humanoid'){
+        return style ? 'craft' : loc('resource_Sandals_name');
+    }
+    else if (races[global.race.species].type === 'avian'){
+        return style ? 'craft' : loc('resource_Perch_name');
+    }
+    else if (races[global.race.species].type === 'plant'){
+        return style ? 'craft' : loc('resource_Planter_name');
+    }
+    else if (races[global.race.species].type === 'fungi'){
+        return style ? 'craft' : loc('resource_DampCloth_name');
+    }
+    else if (races[global.race.species].type === 'reptilian'){
+        return style ? 'craft' : loc('resource_HeatRock_name');
+    }
+    else if (races[global.race.species].type === 'fey'){
+        return style ? 'craft' : loc('resource_PixieDust_name');
+    }
+    else if (races[global.race.species].type === 'synthetic'){
+        return style ? 'craft' : loc('resource_Battery_name');
+    }
+    else {
+        return style ? 'forge' : loc('resource_Horseshoe_name');
+    }
 }
 
 const traitExtra = {
@@ -2449,7 +2845,7 @@ const traitExtra = {
         loc(`wiki_trait_effect_sniper_ex1`),
     ],
     hooved: [
-        loc(`wiki_trait_effect_hooved_ex1`),
+        loc(`wiki_trait_effect_hooved_ex1`,[hoovedRename(false)]),
         loc(`wiki_trait_effect_hooved_ex2`,[
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Lumber') ? global.resource.Lumber.name : loc('resource_Lumber_name')}</span>`,
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Copper') ? global.resource.Copper.name : loc('resource_Copper_name')}</span>`,
@@ -2460,7 +2856,7 @@ const traitExtra = {
             12,75,150,500,5000
         ]),
         loc(`wiki_trait_effect_hooved_ex3`),
-        loc(`wiki_trait_effect_hooved_ex4`,[`<span class="has-text-warning">${5}</span>`]),
+        loc(`wiki_trait_effect_hooved_ex4`,[`<span class="has-text-warning">${5}</span>`,hoovedRename(false)]),
         loc(`wiki_trait_effect_hooved_ex5`,[
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Lumber') ? global.resource.Lumber.name : loc('resource_Lumber_name')}</span>`,
             `<span class="has-text-warning">${global.resource.hasOwnProperty('Copper') ? global.resource.Copper.name : loc('resource_Copper_name')}</span>`
@@ -2477,6 +2873,13 @@ const traitExtra = {
     ],
     high_pop: [
         loc(`wiki_trait_effect_high_pop_ex1`)
+    ],
+    flier: [
+        loc(`wiki_trait_effect_flier_ex1`)
+    ],
+    unfathomable: [
+        loc(`wiki_trait_effect_unfathomable_ex1`),
+        loc(`wiki_trait_effect_unfathomable_ex2`)
     ]
 };
 

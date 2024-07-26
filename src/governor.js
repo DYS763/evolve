@@ -1,11 +1,12 @@
-import { global, p_on, breakdown } from './vars.js';
-import { vBind, popover, tagEvent, calcQueueMax, calcRQueueMax, clearElement, adjustCosts } from './functions.js';
+import { global, seededRandom, p_on, breakdown } from './vars.js';
+import { vBind, popover, tagEvent, calcQueueMax, calcRQueueMax, clearElement, adjustCosts, decodeStructId, timeCheck, arpaTimeCheck, hoovedRename } from './functions.js';
 import { races } from './races.js';
 import { actions, checkCityRequirements, housingLabel, wardenLabel, updateQueueNames, checkAffordable } from './actions.js';
 import { govCivics, govTitle } from './civics.js';
 import { crateGovHook, atomic_mass } from './resources.js';
 import { checkHellRequirements, mechSize, mechCost } from './portal.js';
 import { loc } from './locale.js';
+import { jobScale } from './jobs.js';
 
 export const gmen = {
     soldier: {
@@ -103,7 +104,7 @@ export const gov_traits = {
     tactician: {
         name: loc(`gov_trait_tactician`),
         effect(){ return loc(`gov_trait_tactician_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [5]; },
+        vars(){ return [25]; },
     },
     militant: {
         name: loc(`gov_trait_militant`),
@@ -123,17 +124,17 @@ export const gov_traits = {
     dealmaker: {
         name: loc(`gov_trait_dealmaker`),
         effect(){ return loc(`gov_trait_dealmaker_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [75]; },
+        vars(){ return [125]; },
     },
     risktaker: {
         name: loc(`gov_trait_risktaker`),
         effect(){ return loc(`gov_trait_risktaker_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [10]; },
+        vars(){ return [12]; },
     },
     teacher: {
         name: loc(`gov_trait_teacher`),
         effect(){ return loc(`gov_trait_teacher_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [5]; },
+        vars(){ return [6]; },
     },
     theorist: {
         name: loc(`gov_trait_theorist`),
@@ -143,7 +144,7 @@ export const gov_traits = {
     inspirational: {
         name: loc(`gov_trait_inspirational`),
         effect(){ return loc(`gov_trait_inspirational_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [10]; },
+        vars(){ return [20]; },
     },
     pious: {
         name: loc(`gov_trait_pious`),
@@ -153,7 +154,7 @@ export const gov_traits = {
             val = (global.civic.govern.type === 'corpocracy' ? (val * 2) : val) * xeno;
             return loc(`gov_trait_pious_effect`,[$(this)[0].vars()[0],val]);
         },
-        vars(){ return [10,2]; },
+        vars(){ return [10,5]; },
     },
     pragmatist: {
         name: loc(`gov_trait_pragmatist`),
@@ -162,36 +163,36 @@ export const gov_traits = {
     },
     dirty_jobs: {
         name: loc(`gov_trait_dirty_jobs`),
-        effect(){ return loc(`gov_trait_dirty_jobs_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [0.015]; },
+        effect(){ return loc(`gov_trait_dirty_jobs_effect`,[$(this)[0].vars()[0],$(this)[0].vars()[1],$(this)[0].vars()[2]]); },
+        vars(){ return [0.015,1,10]; },
     },
     extravagant: {
         name: loc(`gov_trait_extravagant`),
-        effect(){ return loc(`gov_trait_extravagant_effect`,[$(this)[0].vars()[0],housingLabel('large',true),$(this)[0].vars()[1],$(this)[0].vars()[2]+5]); },
+        effect(){ return loc(`gov_trait_extravagant_effect`,[$(this)[0].vars()[0],housingLabel('large',true),$(this)[0].vars()[1],jobScale($(this)[0].vars()[2]+5)]); },
         vars(){ return [10,1.25,1]; },
     },
     aristocrat: {
         name: loc(`gov_trait_aristocrat`),
         effect(){ return loc(`gov_trait_aristocrat_effect`,[$(this)[0].vars()[0],$(this)[0].vars()[1],$(this)[0].vars()[2]]); },
-        vars(){ return [50,10,10]; },
+        vars(){ return [50,20,10]; },
     },
     gaslighter: {
         name: loc(`gov_trait_gaslighter`),
         effect(){
             return loc(`gov_trait_gaslighter_effect`,[$(this)[0].vars()[0],wardenLabel(),$(this)[0].vars()[1],$(this)[0].vars()[2]]);
         },
-        vars(){ return [0.5,0.75,0.5]; },
+        vars(){ return [1,1,0.5]; },
     },
     muckraker: {
         name: loc(`gov_trait_muckraker`),
         effect(){
             return loc(`gov_trait_muckraker_effect`,[$(this)[0].vars()[1],$(this)[0].vars()[2]]);
         },
-        vars(){ return [8,10,3]; },
+        vars(){ return [8,12,3]; },
     },
     athleticism: {
         name: loc(`gov_trait_athleticism`),
-        effect(){ return loc(`gov_trait_athleticism_effect`,[$(this)[0].vars()[0],$(this)[0].vars()[1],$(this)[0].vars()[2],wardenLabel()]); },
+        effect(){ return loc(`gov_trait_athleticism_effect`,[$(this)[0].vars()[0],jobScale($(this)[0].vars()[1]),$(this)[0].vars()[2],wardenLabel()]); },
         vars(){ return [1.5,2,4]; },
     },
     nopain: {
@@ -202,7 +203,7 @@ export const gov_traits = {
     organizer: {
         name: loc(`gov_trait_organizer`),
         effect(){ return loc(`gov_trait_organizer_effect`,[$(this)[0].vars()[0]]); },
-        vars(){ return [1]; },
+        vars(){ return [global.genes['governor'] && global.genes.governor >= 2 ? 2 : 1]; },
     }
 };
 
@@ -226,6 +227,7 @@ const names = {
     demonic: ['Yekun','Kesabel','Gadreel','Penemue','Abaddon','Azazyel','Leviathan','Samyaza','Kasyade','Typhon'],
     angelic: ['Lightbringer','Illuminous','Sparks','Chrub','Halo','Star','Pompous','Radiant','Fluffy','Fabio'],
     synthetic: ['HK47','D2R2','Bishop','Wally','Number5','Sunny','Data','Beta','Dot','Motoko'],
+    eldritch: ['Tentacle','Faceless','Horror','Darkness','Void','Dreamer','Mindflayer','Whisper','Paranoia','Empty'],
 };
 
 function genGovernor(setSize){
@@ -243,15 +245,15 @@ function genGovernor(setSize){
             backgrounds = Object.keys(gmen);
         }
 
-        let bgIdx = Math.floor(Math.seededRandom(0,backgrounds.length));
-        let nameIdx = Math.floor(Math.seededRandom(0,nameList.length));
+        let bgIdx = Math.floor(seededRandom(0,backgrounds.length));
+        let nameIdx = Math.floor(seededRandom(0,nameList.length));
 
         let bg = backgrounds.splice(bgIdx,1)[0];
         let name = loc("gov_name_" + nameList.splice(nameIdx,1)[0]);
 
-        let title = gmen[bg].title[Math.floor(Math.seededRandom(0,gmen[bg].title.length))];
+        let title = gmen[bg].title[Math.floor(seededRandom(0,gmen[bg].title.length))];
         if (typeof title === 'object'){
-            title = Math.floor(Math.seededRandom(0,2)) === 0 ? title.m : title.f;
+            title = Math.floor(seededRandom(0,2)) === 0 ? title.m : title.f;
         }
         governors.push({ bg: bg, t: title, n: name });
     }
@@ -262,7 +264,11 @@ function genGovernor(setSize){
 export function govern(){
     if (global.genes['governor'] && global.tech['governor'] && global.race['governor'] && global.race.governor['g'] && global.race.governor['tasks']){
         let cnt = [0,1,2];
-        if (govActive('organizer',0)){ cnt.push(3); }
+        if (global.genes.governor >= 2){
+            cnt.push(cnt.length);
+            if (govActive('organizer',0)){ cnt.push(cnt.length); }
+        }
+        if (govActive('organizer',0)){ cnt.push(cnt.length); }
         cnt.forEach(function(n){
             if (gov_tasks[global.race.governor.tasks[`t${n}`]] && gov_tasks[global.race.governor.tasks[`t${n}`]].req()){
                 gov_tasks[global.race.governor.tasks[`t${n}`]].task();
@@ -325,12 +331,16 @@ export function drawnGovernOffice(){
     govHeader.append($(`<div class="fire"><b-button v-on:click="fire" v-html="fireText()">${loc(`governor_fire`)}</b-button></div>`));
 
     let cnt = [0,1,2];
-    if (govActive('organizer',0)){ cnt.push(3); }
+    if (global.genes['governor'] && global.genes.governor >= 2){
+        cnt.push(cnt.length);
+        if (govActive('organizer',0)){ cnt.push(cnt.length); }
+    }
+    if (govActive('organizer',0)){ cnt.push(cnt.length); }
     cnt.forEach(function(num){
         let options = `<b-dropdown-item v-on:click="setTask('none',${num})">{{ 'none' | label }}</b-dropdown-item>`;
         Object.keys(gov_tasks).forEach(function(task){
             if (gov_tasks[task].req()){
-                options += `<b-dropdown-item v-on:click="setTask('${task}',${num})">{{ '${task}' | label }}</b-dropdown-item>`;
+                options += `<b-dropdown-item v-show="activeTask('${task}')" v-on:click="setTask('${task}',${num})">{{ '${task}' | label }}</b-dropdown-item>`;
             }
         });
 
@@ -400,6 +410,9 @@ export function drawnGovernOffice(){
                     <b-radio-button class="b6" v-show="c.bal_storage.adv" v-model="c.bal_storage.${res}" native-value="8" type="is-danger is-light">4x</b-radio-button>
                 </b-field>
                 </div>`));
+            }
+            else if (global.race.governor.config.bal_storage.hasOwnProperty(res)){
+                delete global.race.governor.config.bal_storage[res];
             }
         });
     }
@@ -499,10 +512,10 @@ export function drawnGovernOffice(){
             global.race.governor.config['trash'] = {};
         }
         ['Infernite','Elerium','Copper','Iron'].forEach(function(res){
-            if (!global.race.governor.config.trash.hasOwnProperty(res)){
-                global.race.governor.config.trash[res] = 0;
+            if (!global.race.governor.config.trash.hasOwnProperty(res) || typeof global.race.governor.config.trash[res] !== 'object' || global.race.governor.config.trash[res] === null){
+                global.race.governor.config.trash[res] = { v: 0, s: true };
             }
-        })
+        });
 
         let contain = $(`<div class="tConfig" v-show="showTask('trash')"><div class="has-text-warning">${loc(`gov_task_trash`)}</div></div>`);
         options.append(contain);
@@ -510,8 +523,36 @@ export function drawnGovernOffice(){
         contain.append(trash);
 
         Object.keys(global.race.governor.config.trash).forEach(function(res){
-            trash.append($(`<b-field>${loc(`gov_task_trash_min`,[global.resource[res].name])}<b-numberinput min="0" :max="1000000" v-model="c.trash.${res}" :controls="false"></b-numberinput></b-field>`));
+            trash.append($(`<b-field class="trash"><div class="trashButton" role="button" @click="trashStrat('${res}')" v-html="$options.methods.trashLabel('${res}')"></div><b-numberinput min="0" :max="1000000" v-model="c.trash.${res}.v" :controls="false"></b-numberinput></b-field>`));
         });
+    }
+
+    { // Replicator
+        if (!global.race.governor.config.hasOwnProperty('replicate')){
+            global.race.governor.config['replicate'] = {};
+        }
+        if (!global.race.governor.config.replicate.hasOwnProperty('pow')){
+            global.race.governor.config.replicate['pow'] = { on: false, cap: 10000, buffer: 0 };
+        }
+        if (!global.race.governor.config.replicate.hasOwnProperty('res')){
+            global.race.governor.config.replicate['res'] = { que: true, neg: true, cap: true };
+        }
+
+        let contain = $(`<div class="tConfig" v-show="showTask('replicate')"><div class="has-text-warning">${loc(`gov_task_replicate`)}</div></div>`);
+        options.append(contain);
+        let replicate = $(`<div class="storage"></div>`);
+        contain.append(replicate);
+
+        replicate.append($(`<div class="chk"><b-checkbox v-model="c.replicate.pow.on">${loc(`gov_task_replicate_auto`)}</b-checkbox></div>`));
+        replicate.append($(`<b-field>${loc(`gov_task_replicate_pmax`)}<b-numberinput min="0" v-model="c.replicate.pow.cap" :controls="false"></b-numberinput></b-field>`));
+        replicate.append($(`<b-field>${loc(`gov_task_replicate_buff`)}<b-numberinput min="0" v-model="c.replicate.pow.buffer" :controls="false"></b-numberinput></b-field>`));
+
+        let res_bal = $(`<div class="storage"></div>`);
+        contain.append(res_bal);
+
+        res_bal.append($(`<div class="chk"><b-checkbox v-model="c.replicate.res.que">${loc(`gov_task_replicate_que`)}</b-checkbox></div>`));
+        res_bal.append($(`<div class="chk"><b-checkbox v-model="c.replicate.res.neg">${loc(`gov_task_replicate_neg`)}</b-checkbox></div>`));
+        res_bal.append($(`<div class="chk"><b-checkbox v-model="c.replicate.res.cap">${loc(`gov_task_replicate_cap`)}</b-checkbox></div>`));
     }
 
     vBind({
@@ -527,9 +568,21 @@ export function drawnGovernOffice(){
                 tagEvent('govtask',{
                     'task': t
                 });
+                vBind({el: `#race`},'update');
             },
             showTask(t){
                 return Object.values(global.race.governor.tasks).includes(t);
+            },
+            activeTask(t){
+                let activeTasks = [];
+                if (global.race.hasOwnProperty('governor')){
+                    Object.keys(global.race.governor.tasks).forEach(function(ts){
+                        if (global.race.governor.tasks[ts] !== 'none'){
+                            activeTasks.push(global.race.governor.tasks[ts]);
+                        }
+                    });
+                }
+                return !activeTasks.includes(t);
             },
             showStrRes(r){
                 return global.resource[r].display;
@@ -540,9 +593,9 @@ export function drawnGovernOffice(){
             fire(){
                 let inc = global.race.governor.hasOwnProperty('f') ? global.race.governor.f : 0;
                 let cost = ((10 + inc) ** 2) - 50;
-                let affix = global.race.universe === 'antimatter' ? 'anti' : 'count';
-                if (global.race.Plasmid[affix] >= cost){
-                    global.race.Plasmid[affix] -= cost;
+                let res = global.race.universe === 'antimatter' ? 'AntiPlasmid' : 'Plasmid';
+                if (global.prestige[res].count >= cost){
+                    global.prestige[res].count -= cost;
                     global.race.governor['candidates'] = genGovernor(10);
                     if (global.race.governor.hasOwnProperty('f')){
                         global.race.governor.f++;
@@ -562,11 +615,17 @@ export function drawnGovernOffice(){
                 let inc = global.race.governor.hasOwnProperty('f') ? global.race.governor.f : 0;
                 let cost = ((10 + inc) ** 2) - 50;
                 return `<div>${loc(`governor_fire`)}</div><div>${cost} ${loc(global.race.universe === 'antimatter' ? `resource_AntiPlasmid_plural_name` : `resource_Plasmid_plural_name`)}</div>`
+            },
+            trashStrat(r){
+                global.race.governor.config.trash[r].s = global.race.governor.config.trash[r].s ? false : true;
+            },
+            trashLabel(r){
+                return loc(global.race.governor.config.trash[r].s ? `gov_task_trash_max` : `gov_task_trash_min`,[global.resource[r].name]);
             }
         },
         filters: {
             label(t){
-                return gov_tasks[t] ? gov_tasks[t].name : loc(`gov_task_${t}`);
+                return gov_tasks[t] ? (typeof gov_tasks[t].name === 'string' ? gov_tasks[t].name : gov_tasks[t].name()) : loc(`gov_task_${t}`);
             }
         }
     });
@@ -613,7 +672,7 @@ function appointGovernor(){
                     global.race.governor['g'] = gov;
                     delete global.race.governor.candidates;
                     global.race.governor['tasks'] = {
-                        t0: 'none', t1: 'none', t2: 'none', t3: 'none'
+                        t0: 'none', t1: 'none', t2: 'none', t3: 'none', t4: 'none', t5: 'none'
                     };
                     updateQueueNames(false, ['city-amphitheatre', 'city-apartment']);
                     calcQueueMax();
@@ -646,6 +705,16 @@ export function govActive(trait,val){
         return gmen[global.race.governor.g.bg].traits[trait] ? gov_traits[trait].vars()[val] : false;
     }
     return false;
+}
+
+export function removeTask(task){
+    if (global.genes['governor'] && global.tech['governor'] && global.race['governor'] && global.race.governor['g'] && global.race.governor['tasks']){
+        for (let i=0; i<global.race.governor.tasks.length; i++){
+            if (global.race.governor.tasks[`t${i}`] === task){
+                global.race.governor.tasks[`t${i}`] = 'none';
+            }
+        }
+    }
 }
 
 export const gov_tasks = {
@@ -852,12 +921,25 @@ export const gov_tasks = {
     assemble: { // Assemble Citizens
         name: loc(`gov_task_assemble`),
         req(){
-            return global.race['artifical'] ? true : false;
+            return global.race['artifical'] && (!global.tech['focus_cure'] || global.tech.focus_cure < 7) ? true : false;
         },
         task(){
             if ( $(this)[0].req() ){
                 if (global['resource'][global.race.species].max > global['resource'][global.race.species].amount){
                     actions.city.assembly.action();
+                }
+            }
+        }
+    },
+    clone: { // Clone Citizens
+        name: loc(`gov_task_clone`),
+        req(){
+            return global.tech['cloning'] ? true : false;
+        },
+        task(){
+            if ( $(this)[0].req() ){
+                if (global['resource'][global.race.species].max > global['resource'][global.race.species].amount){
+                    actions.tauceti.tau_home.cloning_facility.action();
                 }
             }
         }
@@ -879,6 +961,9 @@ export const gov_tasks = {
     spy: { // Spy Recruiter
         name: loc(`gov_task_spy`),
         req(){
+            if (global.tech['isolation']){
+                return false;
+            }
             if (global.race['truepath'] && global.tech['spy']){
                 return true;
             }
@@ -901,6 +986,9 @@ export const gov_tasks = {
     spyop: { // Spy Operator
         name: loc(`gov_task_spyop`),
         req(){
+            if (global.tech['isolation']){
+                return false;
+            }
             if (global.race['truepath'] && global.tech['spy'] && global.tech.spy >= 2){
                 return true;
             }
@@ -943,7 +1031,7 @@ export const gov_tasks = {
     slave: { // Replace Slaves
         name: loc(`gov_task_slave`),
         req(){
-            return checkCityRequirements('slave_market') && global.race['slaver'] && global.city['slave_pen'] ? true : false;
+            return !global.race['orbit_decayed'] && checkCityRequirements('slave_market') && global.race['slaver'] && global.city['slave_pen'] ? true : false;
         },
         task(){
             let cashCap = global.resource.Money.max * (global.race.governor.config.slave.reserve / 100);
@@ -957,7 +1045,7 @@ export const gov_tasks = {
             }
             if ( $(this)[0].req() && global.resource.Money.amount >= slaveCost && (global.resource.Money.diff >= slaveCost || global.resource.Money.amount + global.resource.Money.diff >= cashCap) ){
                 let max = global.city.slave_pen.count * 4;
-                if (max > global.city.slave_pen.slaves){
+                if (max > global.resource.Slave.amount){
                     actions.city.slave_market.action();
                 }
             }
@@ -977,7 +1065,7 @@ export const gov_tasks = {
         }
     },
     horseshoe: { // Forge horseshoes
-        name: loc(global.race['sludge'] ? `gov_task_beaker` : `gov_task_horseshoe`),
+        name(){ return loc(`city_${hoovedRename(true)}`,[hoovedRename(false)]); },
         req(){
             return global.race['hooved'] ? true : false;
         },
@@ -994,7 +1082,7 @@ export const gov_tasks = {
                     }
                 });
                 if (global.resource[res].amount > amount && (global.resource[res].diff >= amount || global.resource[res].amount + global.resource[res].diff >= global.resource[res].max) ){
-                    actions.city.horseshoe.action(1);
+                    actions.city.horseshoe.action();
                 }
             }
         }
@@ -1016,12 +1104,15 @@ export const gov_tasks = {
                 if (craft > 0){ craft = 0; }
 
                 if (global.race.governor.config.trash[res] || global.interstellar.mass_ejector.hasOwnProperty(res) && global.resource[res].display && global.resource[res].max > 0 && global.interstellar.mass_ejector[res] + global.resource[res].diff > 0 && global.resource[res].amount + trade - craft >= global.resource[res].max * 0.999 - 1){
-                    let set = (global.resource[res].amount + trade - craft >= global.resource[res].max * 0.999 - 1) 
+                    let set = (global.resource[res].amount + trade - craft >= global.resource[res].max * 0.999 - 1) || (global.race.governor.config.trash[res] && !global.race.governor.config.trash[res].s)
                         ? Math.floor(global.interstellar.mass_ejector[res] + global.resource[res].diff)
                         : 0;
                     
-                    if (global.race.governor.config.trash[res] && set < global.race.governor.config.trash[res]){
-                        set = global.race.governor.config.trash[res];
+                    if (global.race.governor.config.trash[res] && set < global.race.governor.config.trash[res].v && global.race.governor.config.trash[res].s){
+                        set = Math.abs(global.race.governor.config.trash[res].v);
+                    }
+                    else if (global.race.governor.config.trash[res] && !global.race.governor.config.trash[res].s){
+                        set = (global.resource[res].amount + trade - craft >= global.resource[res].max * 0.999 - 1) ? set : set - Math.abs(global.race.governor.config.trash[res].v);
                     }
                     if (set > remain){ set = remain; }
                     if (set < 0){ set = 0; }
@@ -1215,6 +1306,85 @@ export const gov_tasks = {
                     });
                     global.portal.mechbay.bay += size;
                     global.portal.mechbay.active++;
+                }
+            }
+        }
+    },
+    replicate: { // Replicator Scheduler
+        name: loc(`gov_task_replicate`),
+        req(){
+            return global.tech['replicator'] && global.race['replicator'] ? true : false;
+        },
+        task(){
+            if (global.race.governor.config.replicate.pow.on){
+                let cap = global.race.governor.config.replicate.pow.cap;
+                let buffer = global.race.governor.config.replicate.pow.buffer;
+                if (global.city.power < buffer && global.race.replicator.pow > 0){
+                    let drain = global.city.power < 0 ? Math.abs(global.city.power) + buffer : buffer - global.city.power;
+                    global.race.replicator.pow -= drain;
+                    if (global.race.replicator.pow < 0){
+                        global.race.replicator.pow = 0;
+                    }
+                }
+                else if (global.city.power > buffer && global.race.replicator.pow < cap){
+                    global.race.replicator.pow += (global.city.power - buffer);
+                    if (global.race.replicator.pow > cap){
+                        global.race.replicator.pow = cap;
+                    }
+                }
+                else if (global.race.replicator.pow > cap){
+                    global.race.replicator.pow = cap;
+                }
+                global.race.replicator.pow = Math.floor(global.race.replicator.pow);
+            }
+
+            let rBal = false;
+            for (let idx = 0; global.race.governor.config.replicate.res.que && idx < global.queue.queue.length; idx++){
+                let struct = decodeStructId(global.queue.queue[idx].id);
+                let tc = false;
+                if (global.queue.queue[idx].action === 'arpa'){
+                    let remain = (100 - global.arpa[struct.a].complete) / 100;
+                    let c_action = actions.arpa[struct.a];
+                    tc = arpaTimeCheck(c_action,remain,false,true);
+                }
+                else {
+                    tc = timeCheck(struct.a,false,true);
+                }
+                let resSorted = Object.keys(tc.s).sort(function(a,b){return tc.s[b]-tc.s[a]});
+                for (let i=0; i<resSorted.length; i++){
+                    if (global.resource[resSorted[i]].display && atomic_mass[resSorted[i]]){
+                        global.race.replicator.res = resSorted[i];
+                        rBal = true;
+                        break;
+                    }
+                }
+                if (!global.settings.qAny || rBal){
+                    break;
+                }
+            }
+
+            if (!rBal){
+                let resSorted = Object.keys(atomic_mass).sort(function(a,b){return global.resource[a].diff-global.resource[b].diff});
+                resSorted = resSorted.filter(item => global.resource[item].display);
+
+                if (global.race.governor.config.replicate.res.neg && global.resource[resSorted[0]].diff < 0 && ((global.resource[resSorted[0]].amount <= global.resource[resSorted[0]].max * 0.95) || global.resource[resSorted[0]].max === -1)){
+                    global.race.replicator.res = resSorted[0];
+                }
+                else if (global.resource[global.race.replicator.res].max !== -1 && global.race.governor.config.replicate.res.cap && global.resource[global.race.replicator.res].amount >= global.resource[global.race.replicator.res].max){
+                    let cappable = resSorted.filter(item => global.resource[item].max > 0);
+                    for (let i=0; i<cappable.length; i++){
+                        if (global.resource[cappable[i]].amount < global.resource[cappable[i]].max){
+                            global.race.replicator.res = cappable[i];
+                            rBal = true;
+                            break;
+                        }
+                    }
+                    if (!rBal){
+                        let uncappable = resSorted.filter(item => global.resource[item].max === -1);
+                        if (uncappable.length > 0){
+                            global.race.replicator.res = uncappable[0];
+                        }
+                    }
                 }
             }
         }

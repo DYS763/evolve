@@ -83,6 +83,19 @@ function mainEventsPage(content){
         sideMenu('add',`major-events`,`inspiration`,loc('wiki_events_inspiration'));
     }
 
+    {   // Motivation
+        infoBoxBuilder(mainContent,{ name: 'motivation', template: 'events', label: loc('wiki_events_motivation'), paragraphs: 3, h_level: 2,
+            para_data: {
+                1: [300,600],
+                2: ['10%','13%'],
+            }, 
+            examples: [
+                loc(`event_motivation`)
+            ]
+        });
+        sideMenu('add',`major-events`,`motivation`,loc('wiki_events_motivation'));
+    }
+
     {   // Fire
         let section = infoBoxBuilder(mainContent,{ name: 'fire', template: 'events', label: loc('wiki_events_fire'), paragraphs: 1, h_level: 2,
             para_data: {
@@ -235,7 +248,7 @@ function mainEventsPage(content){
         infoBoxBuilder(mainContent, { name: 'quake_condition', template: 'events', label: loc('wiki_events_quake'), paragraphs: 2, break: [2], h_level: 2 }, section);
         infoBoxBuilder(mainContent, { name: 'quake_examples', template: 'events', label: loc('wiki_events_quake'), h_level: 2, 
             examples: [
-                loc('event_quake',[global.race['cataclysm'] ? races[global.race.species].solar.red : races[global.race.species].home])
+                loc('event_quake',[global.race['cataclysm'] || global.race['orbit_decayed'] ? races[global.race.species].solar.red : races[global.race.species].home])
             ]
         }, section);
         sideMenu('add',`major-events`,`quake`,loc('wiki_events_quake'));
@@ -1108,9 +1121,11 @@ function minorEventsPage(content){
     }
     
     {   // Cheese
+        let resets = global.stats.hasOwnProperty('reset') ? global.stats.reset + 1 : 1;
+        let cheese = +(resets / (resets + 10) * 11).toFixed(2);
         let section = infoBoxBuilder(mainContent,{ name: 'cheese', template: 'events', label: loc('wiki_events_cheese'), paragraphs: 1, h_level: 2,
             para_data: {
-                1: [`1%`,10,25]
+                1: [`${cheese}%`,10,9+resets]
             }});
         infoBoxBuilder(mainContent, { name: 'tech', template: 'events', label: loc('wiki_events_cheese'), paragraphs: 1, h_level: 2,
             para_data: {
@@ -1162,6 +1177,22 @@ function minorEventsPage(content){
             ]
         }, section);
         sideMenu('add',`minor-events`,`rumor`,loc('wiki_events_rumor'));
+    }
+
+    {   // Pet
+        let section = infoBoxBuilder(mainContent,{ name: 'pet', template: 'events', label: loc('wiki_events_pet'), paragraphs: 1, h_level: 2 });
+        infoBoxBuilder(mainContent, { name: 'tech', template: 'events', label: loc('wiki_events_pet'), paragraphs: 1, h_level: 2,
+            para_data: {
+                1: [loc(`tech_club`)]
+            }
+        }, section);
+        infoBoxBuilder(mainContent, { name: 'cat_examples', template: 'events', label: loc('wiki_events_pet'), h_level: 2, 
+            examples: [
+                loc(`event_pet_cat`,[loc(`event_cat_name3`)]),
+                loc(`event_pet_dog`,[loc(`event_dog_name0`)])
+            ]
+        }, section);
+        sideMenu('add',`minor-events`,`pet`,loc('wiki_events_pet'));
     }
 }
 
@@ -1453,10 +1484,11 @@ function specialEventsPage(content){
 
         {   // Egg Hunt
             let event = 'egghunt';
-            let section = infoBoxBuilder(mainContent,{ name: event, template: 'events', label: loc(`wiki_events_${event}`), paragraphs: 5, break: [2,3,4], h_level: 2,
+            let section = infoBoxBuilder(mainContent,{ name: event, template: 'events', label: loc(`wiki_events_${event}`), paragraphs: 7, break: [2,3,4,6], h_level: 2,
                 para_data: {
-                    2: [loc('feat_egghunt_name'),12,15],
+                    2: [loc('feat_egghunt_name'),12,18],
                     5: [loc('trait_hyper_name'),loc('trait_fast_growth_name'),loc('trait_rainbow_name'),loc('trait_optimistic_name')],
+                    7: [loc('trait_cannibalize_name'),loc('trait_rage_name'),loc('trait_blood_thirst_name'),loc('trait_sticky_name')],
                 }
             });
 
@@ -1475,7 +1507,10 @@ function specialEventsPage(content){
                 `U2FsdGVkX18brcDy1P4HEGkmTw5t19CgWEshDFRSByELjSG9MtvSdSBbj13JhYuG`,
                 `U2FsdGVkX1/vr39YAfqKcFM7c8ed6Oi7lRrDYKDtfUJRKF3pcrIRAWc4FF/Tt5BjwaXOi0slDE9JmeIDifD2gw==`,
                 `U2FsdGVkX19KtuHoWRLTz0wLH8D/fLoOriDsmk6agzT85xsAAXv26ILjSV2C8mpi`,
-                `U2FsdGVkX18/Tyjq6czHYJKjJQPXcRCgqmZqu2AFmx2FddfQPzM+YkXXECLMVA+e`
+                `U2FsdGVkX18/Tyjq6czHYJKjJQPXcRCgqmZqu2AFmx2FddfQPzM+YkXXECLMVA+e`,
+                `U2FsdGVkX19kn6Hj9vQq5JxU9dsKsu0U+qADHauwh7TPf1enfhF1VQamBs7VFuX5`,
+                `U2FsdGVkX19ICmvq9eubXYyGpmRML9aqTzBZMRvvOWFMwp2IiJBUUpl4LgLJOwLqnEISPAepbrdrfJn8miQIgA==`,
+                `U2FsdGVkX19P0vr33mSfkSTDVz7N3a59YF5Cc+/NMC0f1tT3fXJDLqZMi98gGOrv`
             ];
 
             let solutions = [
@@ -1493,7 +1528,10 @@ function specialEventsPage(content){
                 `U2FsdGVkX1/f1jFsIVKmxsXq85PuOj+fq+9WtYf1AZbPsuChio/XV6mpCxlTJz8X`,
                 `U2FsdGVkX1+NRsztgBjDQeevIAYiHJ+X9dUERkDoYpLcvYAvWWzVvbjk4uq4dSMPEuykMqsZGGwvBtl1V0T+pO254xK8+5xWjZYnE9x6A+I=`,
                 `U2FsdGVkX1//Crqk3ZOt8MHG/C4V91VEORQ3rQe4CEBHQhqfMD84PrEBZkwN7VpKvBgcg+2FsDknW+LDnNPIZA==`,
-                `U2FsdGVkX1/bUrGTAmEkt6ukJKG8tIAIUVr4fnMFPsdamUtLJBGIG2dwQyaYywTD`
+                `U2FsdGVkX1/bUrGTAmEkt6ukJKG8tIAIUVr4fnMFPsdamUtLJBGIG2dwQyaYywTD`,
+                `U2FsdGVkX1/zl2y8RCXettY8EAPFE+cc/qImK4n5BocvEV2YvFKSyrOGxfLd3qBD`,
+                `U2FsdGVkX19GszY2Yf01gUZnzs9F51vUgYu/FlRIPiFt9zasXhFP9tzX1en5/483mZeqi/uNRhV+zfoHd6qcYA==`,
+                `U2FsdGVkX1+4syPwX9UT2KAsJj8uv43olf/GOTOudd/RbwnHsybitwYU4kk2ZVWx`
             ];
 
             const date = new Date();
@@ -1501,7 +1539,7 @@ function specialEventsPage(content){
             const passphrase = 'egghunt';
             let eggs = `<div class="has-text-warning">${loc('wiki_feat_egghunt_found')}</div>`;
             eggs = eggs + `<div class="tbl">`;
-            for (let i=1; i<=15; i++){
+            for (let i=1; i<=18; i++){
                 let egg = global.special.egg.hasOwnProperty(year) && global.special.egg[year][`egg${i}`] ? 'has-text-success' : 'has-text-danger';
                 let found = global.special.egg.hasOwnProperty(year) && global.special.egg[year][`egg${i}`] ? 'found' : 'missing';
                 

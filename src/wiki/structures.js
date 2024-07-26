@@ -28,6 +28,9 @@ export function renderStructurePage(zone,path){
         case 'hell':
             hellPage(content);
             break;
+        case 'tauceti':
+            taucetiPage(content);
+            break;
     }
 }
 
@@ -36,10 +39,19 @@ const extraInformation = {
     planetary: {
         slaughter: [loc(`wiki_structure_planetary_slaughter`)],
     },
-    space: {},
+    space: {
+        terraformer: [loc(`wiki_structure_space_terraformer`)],
+        terraform: [loc(`wiki_structure_space_terraformer`)],
+    },
+    starDock: {
+        geck: [
+            loc(`wiki_structure_stardock_geck`),
+        ]
+    },
     interstellar: {},
     intergalactic: {},
     hell: {},
+    tauceti: {},
 };
 
 function addInfomration(parent,section,key){
@@ -53,33 +65,44 @@ function addInfomration(parent,section,key){
 }
 
 const calcInfo = {
-    include: {
+    include: { // Things that are not one-offs (only used for prehistoric since most are one-offs).
         prehistoric: ['membrane','organelles','nucleus','eukaryotic_cell','mitochondria']
     },
-    exclude: {
+    exclude: { // Things that are one-offs, disappearing after they're clicked. Automatically excludes creep. Does not add a calculator.
         planetary: ['food','lumber','stone','chrysotile','slaughter','slave_market',''],
-        space: ['test_launch','moon_mission','red_mission','hell_mission','sun_mission','gas_mission','gas_moon_mission','belt_mission','dwarf_mission','titan_mission','enceladus_mission','triton_mission','kuiper_mission','eris_mission','crashed_ship','digsite'],
+        space: ['test_launch','moon_mission','terraform','red_mission','hell_mission','sun_mission','gas_mission','gas_moon_mission','belt_mission','dwarf_mission','titan_mission','enceladus_mission','triton_mission','kuiper_mission','eris_mission','crashed_ship','digsite'],
+        starDock: ['prep_ship','launch_ship'],
         interstellar: ['alpha_mission','proxima_mission','nebula_mission','neutron_mission','blackhole_mission','jump_ship','wormhole_mission','sirius_mission','sirius_b','ascend'],
         intergalactic: ['gateway_mission','gorddon_mission','alien2_mission','chthonian_mission'],
-        hell: ['pit_mission','assault_forge','ruins_mission','gate_mission','lake_mission','spire_mission','bribe_sphinx','spire_survey','spire']
+        hell: ['pit_mission','assault_forge','ruins_mission','gate_mission','lake_mission','spire_mission','bribe_sphinx','spire_survey','spire'],
+        tauceti: [
+            'home_mission','dismantle','excavate','alien_outpost','red_mission','matrix','roid_mission','alien_station_survey',
+            'contact','introduce','subjugate','gas_contest','gas_contest2','ignite_gas_giant','jeff','goe_facility'
+        ],
     },
-    excludeCreep: {
+    excludeCreep: { // Things that aren't one-offs, but also don't have conventional cost creep.
         planetary: ['horseshoe'],
         space: ['horseshoe'],
-        hell: ['ancient_pillars','sphinx','waygate']
+        hell: ['ancient_pillars','sphinx','waygate'],
+        tauceti: ['horseshoe']
     },
-    max: {
+    max: { // Structures that can have a max to the number of them that you can get. Things with a max of 1 that are included here as opposed to in the exclude section are things that linger around after being purchased, usually having a changing text after being bought.
         prehistoric: {},
         planetary: {
             s_alter: 1
         },
         space: {
             star_dock: 1,
+            terraformer: 100,
             world_collider: 1859,
             shipyard: 1,
             mass_relay: 100,
             fob: 1,
-            ai_core: 100
+            ai_core: 100,
+            jump_gate: 100
+        },
+        starDock: {
+            seeder: 100
         },
         interstellar: {
             dyson: 100,
@@ -104,9 +127,17 @@ const calcInfo = {
             bridge: 10,
             sphinx: 2,
             waygate: 10
+        },
+        tauceti: {
+            alien_outpost: 1,
+            jump_gate: 100,
+            ringworld: 1000,
+            alien_station: 100,
+            matrioshka_brain: 1000,
+            ignition_device: 10
         }
     },
-    count: {
+    count: { // Structures that have "count" values that aren't tracked in the building itself. Here you calculate the count that building would have from the save provided.
         planetary: {
             horseshoe: global.race['shoecnt'] ? global.race['shoecnt'] : 0,
             assembly: global.resource[global.race.species] ? global.resource[global.race.species].amount : 0
@@ -121,9 +152,10 @@ const calcInfo = {
             ancient_pillars: Object.keys(global.pillars).length,
             sphinx: !global.tech['hell_spire'] || global.tech.hell_spire < 7 ? 0 : global.tech.hell_spire === 7 ? 1 : 2,
             waygate: global.tech['waygate'] && global.tech.waygate >= 2 ? 10 : global.portal['waygate'] ? global.portal.waygate.count : 0
-        }
+        },
+        tauceti: {}
     },
-    creepCalc: {
+    creepCalc: { // Because the cost creep is reverse engineered, buildings with very low cost creep can calculation discrepencies by using the base offset of 100. Here you set higher amounts for those specific buildings to use with the calculation to get a more accurate result.
         planetary: {
             assembly: 1000
         },
@@ -149,6 +181,11 @@ const calcInputs = {
         inputs: ['mass_driver']
     }
 };
+
+//Additional information to pass to an action's effect() function;
+const effectInputs ={
+    terraformer: ['truepath']
+}
 
 function addCalcInputs(parent,key,section,region,path){
     let hasMax = calcInfo.max[section] && calcInfo.max[section][key] ? calcInfo.max[section][key] : false;
@@ -176,6 +213,10 @@ function addCalcInputs(parent,key,section,region,path){
             action = actions.space[region][key];
             inputs.real_owned = global.space[key] ? global.space[key].count : 0;
             break;
+        case 'starDock':
+            action = actions.starDock[key];
+            inputs.real_owned = global.starDock[key] ? global.starDock[key].count : 0;
+            break;
         case 'interstellar':
             action = actions.interstellar[region][key];
             inputs.real_owned = global.interstellar[key] ? global.interstellar[key].count : 0;
@@ -187,6 +228,10 @@ function addCalcInputs(parent,key,section,region,path){
         case 'hell':
             action = actions.portal[region][key];
             inputs.real_owned = global.portal[key] ? global.portal[key].count : 0;
+            break;
+        case 'tauceti':
+            action = actions.tauceti[region][key];
+            inputs.real_owned = global.tauceti[key] ? global.tauceti[key].count : 0;
             break;
     }
     if (calcInfo.count[section] && calcInfo.count[section][key]){
@@ -203,7 +248,18 @@ function addCalcInputs(parent,key,section,region,path){
         if (action.hasOwnProperty('effect') && typeof action.effect !== 'string'){
             let effect = $(`.effect`, `#${key}`);
             clearElement(effect);
-            effect.append(action.effect(inputs.owned - inputs.real_owned));
+            let insert = inputs.owned - inputs.real_owned;
+            if (effectInputs[key]){
+                insert = { count: insert };
+                effectInputs[key].forEach(function(inp){
+                    switch (inp){
+                        case 'truepath':
+                            insert[inp] = path === 'truepath';
+                            break;
+                    }
+                });
+            }
+            effect.append(action.effect(insert));
         }
     };
     updateEffect();
@@ -364,6 +420,7 @@ function planetaryPage(content,path){
 
 function spacePage(content,path){
     let affix = path === 'truepath' ? 'tp_structures' : 'structures';
+
     Object.keys(actions.space).forEach(function (region){        
         let name = typeof actions.space[region].info.name === 'string' ? actions.space[region].info.name : actions.space[region].info.name();
         let desc = typeof actions.space[region].info.desc === 'string' ? actions.space[region].info.desc : actions.space[region].info.desc();
@@ -382,6 +439,21 @@ function spacePage(content,path){
                 popover(`pop${actions.space[region][struct].id}`,$(`<div>${desc}</div>`));
             }
         });
+    });
+
+    Object.keys(actions.starDock).forEach(function (struct){
+        if (struct !== 'info' && 
+            (!actions.starDock[struct].hasOwnProperty('wiki') || actions.starDock[struct].wiki) && 
+            (!actions.starDock[struct].hasOwnProperty('path') || actions.starDock[struct].path.includes(path)) ){
+            let id = actions.starDock[struct].id.split('-');
+            let info = $(`<div id="${id[1]}" class="infoBox"></div>`);
+            content.append(info);
+            actionDesc(info, actions.starDock[struct],`<span id="pop${actions.starDock[struct].id}">${loc('space_gas_star_dock_title')}</span>`, true);
+            addInfomration(info,'starDock',struct);
+            addCalcInputs(info,struct,'starDock',false,path);
+            sideMenu('add',`space-${affix}`,id[1],typeof actions.starDock[struct].title === 'function' ? actions.starDock[struct].title() : actions.starDock[struct].title);
+            popover(`pop${actions.starDock[struct].id}`,$(`<div>${loc(`space_gas_star_dock_wiki`)}</div>`));
+        }
     });
 }
 
@@ -440,6 +512,26 @@ function hellPage(content){
                 addCalcInputs(info,struct,'hell',region);
                 sideMenu('add',`hell-structures`,id[1],typeof actions.portal[region][struct].title === 'function' ? actions.portal[region][struct].title() : actions.portal[region][struct].title);
                 popover(`pop${actions.portal[region][struct].id}`,$(`<div>${desc}</div>`));
+            }
+        });
+    });
+}
+
+function taucetiPage(content){
+    Object.keys(actions.tauceti).forEach(function (region){        
+        let name = typeof actions.tauceti[region].info.name === 'string' ? actions.tauceti[region].info.name : actions.tauceti[region].info.name();
+        let desc = typeof actions.tauceti[region].info.desc === 'string' ? actions.tauceti[region].info.desc : actions.tauceti[region].info.desc();
+
+        Object.keys(actions.tauceti[region]).forEach(function (struct){
+            if (struct !== 'info' && (!actions.tauceti[region][struct].hasOwnProperty('wiki') || actions.tauceti[region][struct].wiki)){
+                let id = actions.tauceti[region][struct].id.split('-');
+                let info = $(`<div id="${id[1]}" class="infoBox"></div>`);
+                content.append(info);
+                actionDesc(info, actions.tauceti[region][struct],`<span id="pop${actions.tauceti[region][struct].id}">${name}</span>`, true);
+                addInfomration(info,'tauceti',struct);
+                addCalcInputs(info,struct,'tauceti',region);
+                sideMenu('add',`tauceti-structures`,id[1],typeof actions.tauceti[region][struct].title === 'function' ? actions.tauceti[region][struct].title() : actions.tauceti[region][struct].title);
+                popover(`pop${actions.tauceti[region][struct].id}`,$(`<div>${desc}</div>`));
             }
         });
     });

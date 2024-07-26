@@ -5,15 +5,6 @@ import { universe_affixes, universe_types, piracy } from './space.js';
 import { monsters } from './portal.js';
 import { loc } from './locale.js'
 
-
-if (!global.stats['achieve']){
-    global.stats['achieve'] = {};
-}
-
-if (!global.stats['feat']){
-    global.stats['feat'] = {};
-}
-
 const achieve_list = {
     misc: [
         'apocalypse','ascended','dreaded','anarchist','second_evolution','blackhole','warmonger',
@@ -21,7 +12,7 @@ const achieve_list = {
         'laser_shark','infested','mass_starvation','colonist','world_domination','illuminati',
         'syndicate','cult_of_personality','doomed','pandemonium','blood_war','landfill','seeder',
         'miners_dream','shaken','blacken_the_sun','trade','resonance','enlightenment','gladiator',
-        'corrupted'
+        'corrupted','red_dead'
     ],
     species: [
         'mass_extinction','extinct_human','extinct_elven','extinct_orc','extinct_cath','extinct_wolven','extinct_vulpine','extinct_centaur',
@@ -31,24 +22,29 @@ const achieve_list = {
         'extinct_arraak','extinct_pterodacti','extinct_dracnid','extinct_entish','extinct_cacti','extinct_pinguicula','extinct_sporgar',
         'extinct_shroomi','extinct_moldling','extinct_mantis','extinct_scorpid','extinct_antid','extinct_sharkin','extinct_octigoran','extinct_dryad',
         'extinct_satyr','extinct_phoenix','extinct_salamander','extinct_yeti','extinct_wendigo','extinct_tuskin','extinct_kamel','extinct_balorg',
-        'extinct_imp','extinct_seraph','extinct_unicorn','extinct_synth','extinct_nano','extinct_junker','extinct_sludge','extinct_custom'
+        'extinct_imp','extinct_seraph','extinct_unicorn','extinct_synth','extinct_nano','extinct_ghast','extinct_shoggoth',
+        'extinct_junker','extinct_sludge','extinct_custom'
     ],
     genus: [
         'creator','genus_humanoid','genus_carnivore','genus_herbivore','genus_small','genus_giant','genus_reptilian','genus_avian',
         //'creator','genus_humanoid','genus_carnivore','genus_omnivore','genus_herbivore','genus_small','genus_giant','genus_reptilian','genus_avian',
-        'genus_insectoid','genus_plant','genus_fungi','genus_aquatic','genus_fey','genus_heat','genus_polar','genus_sand','genus_demonic','genus_angelic','genus_synthetic'
+        'genus_insectoid','genus_plant','genus_fungi','genus_aquatic','genus_fey','genus_heat','genus_polar','genus_sand','genus_demonic','genus_angelic',
+        'genus_synthetic','genus_eldritch'
     ],
     planet: [
         'explorer','biome_grassland','biome_oceanic','biome_forest','biome_desert','biome_volcanic','biome_tundra',
         'biome_savanna','biome_swamp','biome_ashland','biome_taiga','biome_hellscape','biome_eden',
         'atmo_toxic','atmo_mellow','atmo_rage','atmo_stormy','atmo_ozone','atmo_magnetic','atmo_trashed','atmo_elliptical','atmo_flare','atmo_dense',
-        'atmo_unstable','atmo_permafrost'
+        'atmo_unstable','atmo_permafrost','atmo_retrograde'
     ],
     universe: [
         'vigilante','squished','double_density','cross','macro','marble','heavyweight','whitehole','heavy','canceled',
-        'eviltwin','microbang','pw_apocalypse','fullmetal','pass'
+        'eviltwin','microbang','pw_apocalypse','fullmetal','pass','soul_sponge','nightmare','escape_velocity'
     ],
-    challenge: ['joyless','steelen','dissipated','technophobe','wheelbarrow','iron_will','failed_history','banana','pathfinder','ashanddust','exodus','obsolete','gross'],
+    challenge: [
+        'joyless','steelen','dissipated','technophobe','wheelbarrow','iron_will','failed_history','banana','pathfinder',
+        'ashanddust','exodus','obsolete','bluepill','retired','gross','lamentis','overlord',`adam_eve`
+    ],
 };
 
 const flairData = {
@@ -189,6 +185,11 @@ export const feats = {
         name: loc("feat_slime_lord_name"),
         desc: loc("feat_slime_lord_desc"),
         flair: loc("feat_slime_lord_flair")
+    },
+    annihilation: {
+        name: loc("feat_annihilation_name"),
+        desc: loc("feat_annihilation_desc"),
+        flair: loc("feat_annihilation_flair")
     },
     friday: {
         name: loc("feat_friday_name"),
@@ -483,19 +484,24 @@ export function challengeIcon(){
             $('#topBar .planet').after(`<span class="flair"><svg class="star${a_level}" version="1.1" x="0px" y="0px" width="16px" height="16px" viewBox="${svgViewBox(bIcon)}" xml:space="preserve">${svgIcons(bIcon)}</svg></span>`);
         }
 
+        let desc = '';
+        if (global.race['no_plasmid']){ desc += `<div>${loc('evo_challenge_plasmid')}</div>`; }
+        if (global.race['weak_mastery']){ desc += `<div>${loc('evo_challenge_mastery')}</div>`; }
+        if (global.race['no_trade']){ desc += `<div>${loc('evo_challenge_trade')}</div>`; }
+        if (global.race['no_craft']){ desc += `<div>${loc('evo_challenge_craft')}</div>`; }
+        if (global.race['no_crispr']){ desc += `<div>${loc('evo_challenge_crispr')}</div>`; }
+        if (global.race['nerfed']){ desc += `<div>${loc('evo_challenge_nerfed')}</div>`; }
+        if (global.race['badgenes']){ desc += `<div>${loc('evo_challenge_badgenes')}</div>`; }
+
+        if (desc.length > 0){
+            $('#topBar .planetWrap .flair').append($(`<div class="is-sr-only"><div>Active Challenge Genes</div>${desc}</div>`));
+        }
+
         popover('topbarPlanet',
             function(obj){
                 let popper = $(`<div id="topbarPlanet"></div>`);
                 obj.popper.append(popper);
-    
-                if (global.race['no_plasmid']){ popper.append($(`<div>${loc('evo_challenge_plasmid')}</div>`)); }
-                if (global.race['weak_mastery']){ popper.append($(`<div>${loc('evo_challenge_mastery')}</div>`)); }
-                if (global.race['no_trade']){ popper.append($(`<div>${loc('evo_challenge_trade')}</div>`)); }
-                if (global.race['no_craft']){ popper.append($(`<div>${loc('evo_challenge_craft')}</div>`)); }
-                if (global.race['no_crispr']){ popper.append($(`<div>${loc('evo_challenge_crispr')}</div>`)); }
-                if (global.race['nerfed']){ popper.append($(`<div>${loc('evo_challenge_nerfed')}</div>`)); }
-                if (global.race['badgenes']){ popper.append($(`<div>${loc('evo_challenge_badgenes')}</div>`)); }
-
+                popper.append($(desc));
                 return undefined;
             },
             {
@@ -569,10 +575,7 @@ export function checkAchievements(){
         }
     }
 
-    if (eventActive('firework') && ( 
-        (!global.race['cataclysm'] && global.city.firework.on > 0) || 
-        (global.race['cataclysm'] && global.space.firework.on > 0) 
-        )){
+    if (eventActive('firework') && global[global.race['cataclysm'] || global.race['orbit_decayed'] ? 'space' : 'city'].firework.on > 0){
         unlockFeat('firework',global.race.universe === 'micro' ? true : false);
     }
 
@@ -600,15 +603,13 @@ export function checkAchievements(){
         let equilRank = 5;
         Object.keys(global.pillars).forEach(function(race){                
             if (races[race]){
-                if (race !== 'sludge'){
-                    if (!genus[races[race].type] || global.pillars[race] > genus[races[race].type]){
-                        genus[races[race].type] = global.pillars[race];
-                    }
-                    if (global.pillars[race] < equilRank){
-                        equilRank = global.pillars[race];
-                    }
-                    rCnt++;
+                if (!genus[races[race].type] || global.pillars[race] > genus[races[race].type]){
+                    genus[races[race].type] = global.pillars[race];
                 }
+                if (global.pillars[race] < equilRank){
+                    equilRank = global.pillars[race];
+                }
+                rCnt++;
             }
         });
         if (Object.keys(genus).length >= Object.keys(genus_traits).length){
@@ -620,8 +621,10 @@ export function checkAchievements(){
             });
             unlockAchieve('enlightenment',false,rank);
         }
-        if (rCnt >= Object.keys(races).length - 2){
+        if (rCnt >= Object.keys(races).length - 1){
             unlockAchieve('resonance');
+        }
+        if (rCnt >= 50){
             unlockFeat('equilibrium',false,equilRank);
         }
     }
@@ -689,7 +692,7 @@ export function checkAchievements(){
         let uAffix = universeAffix();
         ['l',uAffix].forEach(function (affix){
             let rank = 0;
-            ['ashanddust','exodus','obsolete'].forEach(function (achieve){
+            ['ashanddust','exodus','obsolete','bluepill','retired'].forEach(function (achieve){
                 if (global.stats.achieve[achieve] && global.stats.achieve[achieve][affix] && global.stats.achieve[achieve][affix] >= 5){
                     rank++;
                 }
@@ -721,7 +724,7 @@ export function checkAchievements(){
         unlockFeat('easter',global.race.universe === 'micro' ? true : false);
 
         let eggs = 0;
-        for (let i=1; i<=15; i++){
+        for (let i=1; i<=18; i++){
             if (global.special.egg[year][`egg${i}`]){
                 eggs++;
             }
@@ -802,6 +805,18 @@ export function checkAchievements(){
             }
         }
     }
+}
+
+export function checkAdept(){
+    let rank = 0;
+    ['whitehole','eviltwin','canceled','heavy','pw_apocalypse'].forEach(function(x){
+        if (global.stats.achieve[x]){
+            rank = Math.max(global.stats.achieve[x].l, rank);
+        }
+    });
+
+    rank = global.stats.feat['adept'] ? Math.min(rank, global.stats.feat['adept']) : 0;
+    return rank;
 }
 
 function checkBigAchievement(frag, name, num, level){
@@ -1509,6 +1524,96 @@ export const perkList = {
             loc(`wiki_perks_achievement_note_failed_history`,[`<span class="has-text-caution">${loc(`evo_challenge_cataclysm`)}</span>`])
         ]
     },
+    lamentis: {
+        name: loc(`achieve_lamentis_name`),
+        group: [
+            {
+                desc(){
+                    return loc("achieve_perks_lamentis1",[`10%`]);
+                },
+                active(){
+                    return global.stats.achieve['lamentis'] && global.stats.achieve.lamentis.l >= 1 ? true : false;
+                }
+            },
+            {
+                desc(){
+                    return loc("achieve_perks_lamentis2",[`10%`]);
+                },
+                active(){
+                    return global.stats.achieve['lamentis'] && global.stats.achieve.lamentis.l >= 2 ? true : false;
+                }
+            },
+            {
+                desc(){
+                    return loc("achieve_perks_lamentis3",[`10%`]);
+                },
+                active(){
+                    return global.stats.achieve['lamentis'] && global.stats.achieve.lamentis.l >= 3 ? true : false;
+                }
+            },
+            {
+                desc(){
+                    return loc("achieve_perks_lamentis4");
+                },
+                active(){
+                    return global.stats.achieve['lamentis'] && global.stats.achieve.lamentis.l >= 4 ? true : false;
+                }
+            },
+            {
+                desc(){
+                    return loc("achieve_perks_lamentis5");
+                },
+                active(){
+                    return global.stats.achieve['lamentis'] && global.stats.achieve.lamentis.l >= 5 ? true : false;
+                }
+            },
+        ],
+        notes: [
+            loc(`wiki_perks_achievement_note`,[`<span class="has-text-caution">${loc(`achieve_lamentis_name`)}</span>`]),
+            loc(`wiki_perks_achievement_note_scale`,[`<span class="has-text-caution">${loc(`achieve_lamentis_name`)}</span>`])
+        ]
+    },
+    soul_sponge: {
+        name: loc(`achieve_soul_sponge_name`),
+        desc(wiki){
+            let soul = wiki ? "100/200/300/400/500" : global.stats.achieve['soul_sponge'] ? global.stats.achieve.soul_sponge.mg * 100 : 100;
+            return loc("achieve_perks_soul_sponge",[soul]);
+        },
+        active(){
+            return global.stats.achieve['soul_sponge'] && global.stats.achieve.soul_sponge.mg >= 1 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_achievement_note`,[`<span class="has-text-caution">${loc(`achieve_soul_sponge_name`)}</span>`]),
+            loc(`wiki_perks_achievement_note_scale`,[`<span class="has-text-caution">${loc(`achieve_soul_sponge_name`)}</span>`])
+        ]
+    },
+    nightmare: {
+        name: loc(`achieve_nightmare_name`),
+        desc(){
+            return loc("achieve_perks_nightmare");
+        },
+        active(){
+            return global.stats.achieve['nightmare'] && global.stats.achieve.nightmare.mg >= 1 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_achievement_note`,[`<span class="has-text-caution">${loc(`achieve_nightmare_name`)}</span>`]),
+            loc(`wiki_perks_achievement_note_scale`,[`<span class="has-text-caution">${loc(`achieve_nightmare_name`)}</span>`])
+        ]
+    },
+    escape_velocity: {
+        name: loc(`achieve_escape_velocity_name`),
+        desc(wiki){
+            let ev = wiki ? "2/4/6/8/10" : global.stats.achieve['escape_velocity'] ? global.stats.achieve.escape_velocity.h * 2 : 2;
+            return loc("achieve_perks_escape_velocity",[ev]);
+        },
+        active(){
+            return global.stats.achieve['escape_velocity'] && global.stats.achieve.escape_velocity.h >= 1 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_achievement_note`,[`<span class="has-text-caution">${loc(`achieve_escape_velocity_name`)}</span>`]),
+            loc(`wiki_perks_achievement_note_scale`,[`<span class="has-text-caution">${loc(`achieve_escape_velocity_name`)}</span>`])
+        ]
+    },
     gladiator: {
         name: loc(`achieve_gladiator_name`),
         desc(wiki){
@@ -1552,18 +1657,18 @@ export const perkList = {
             },
             {
                 desc(){
-                    return loc("unavailable_content");
+                    return loc("achieve_perks_pathfinder4");
                 },
                 active(){
-                    return false;
+                    return global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 4 ? true : false;
                 }
             },
             {
                 desc(){
-                    return loc("unavailable_content");
+                    return loc("achieve_perks_pathfinder5");
                 },
                 active(){
-                    return false;
+                    return global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 5 ? true : false;
                 }
             },
         ],
@@ -1573,7 +1678,35 @@ export const perkList = {
             loc(`wiki_perks_achievement_note_pathfinder_reset`,[`<span class="has-text-${global.stats.achieve['ashanddust'] ? 'success' : 'danger'}">${loc(`wiki_resets_mad`)}</span>`]),
             loc(`wiki_perks_achievement_note_pathfinder_reset`,[`<span class="has-text-${global.stats.achieve['exodus'] ? 'success' : 'danger'}">${loc(`wiki_resets_bioseed`)}</span>`]),
             loc(`wiki_perks_achievement_note_pathfinder_reset`,[`<span class="has-text-${global.stats.achieve['obsolete'] ? 'success' : 'danger'}">${loc(`wiki_resets_ai`)}</span>`]),
+            loc(`wiki_perks_achievement_note_pathfinder_reset`,[`<span class="has-text-${global.stats.achieve['bluepill'] ? 'success' : 'danger'}">${loc(`wiki_resets_matrix`)}</span>`]),
+            loc(`wiki_perks_achievement_note_pathfinder_reset`,[`<span class="has-text-${global.stats.achieve['retired'] ? 'success' : 'danger'}">${loc(`wiki_resets_retired`)}</span>`]),
         ]
+    },
+    overlord: {
+        name: loc(`achieve_overlord_name`),
+        desc(){
+            let desc = `<div>${loc("achieve_perks_overlord1",[10])}</div>`;
+            desc += `<div>${loc("achieve_perks_overlord2")}</div>`;
+            desc += `<div>${loc("achieve_perks_overlord3")}</div>`;
+            desc += `<div>${loc("achieve_perks_overlord4")}</div>`;
+            return desc;
+        },
+        active(){
+            return global.stats.achieve['overlord'] && global.stats.achieve.overlord.l >= 5 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_achievement_note`,[`<span class="has-text-caution">${loc(`achieve_overlord_name`)}</span>`]),
+        ]
+    },
+    adam_eve: {
+        name: loc(`achieve_adam_eve_name`),
+        desc(){
+            return loc(`achieve_perks_adam_eve`);
+        },
+        active(){
+            return global.stats.achieve['adam_eve'] && global.stats.achieve.adam_eve.l >= 5 ? true : false;
+        },
+        notes: []
     },
     creep: {
         name: loc(`wiki_arpa_crispr_creep`),
@@ -1808,8 +1941,8 @@ export const perkList = {
             {
                 desc(wiki){
                     return loc("arpa_perks_challenge2",[
-                        wiki ? "60/80" : global.genes['challenge'] && global.genes['challenge'] >= 4 ? 80 : 60,
-                        wiki ? "60/40" : global.genes['challenge'] && global.genes['challenge'] >= 4 ? 40 : 60
+                        wiki ? "60/80" : global.genes['challenge'] && global.genes.challenge >= 4 ? 80 : 60,
+                        wiki ? "60/40" : global.genes['challenge'] && global.genes.challenge >= 4 ? 40 : 60
                     ]);
                 },
                 active(){
@@ -2358,16 +2491,47 @@ export const perkList = {
     adept: {
         name: loc(`perk_adept`),
         desc(wiki){
-            let rank = global.stats.feat['adept'] && global.stats.achieve['whitehole'] && global.stats.achieve.whitehole.l > 0 ? Math.min(global.stats.achieve.whitehole.l,global.stats.feat['adept']) : 1;
+            let rank = checkAdept() || 1;
             let res = wiki ? "100/200/300/400/500" : rank * 100;
             let cap = wiki ? "60/120/180/240/300" : rank * 60;
             return loc("achieve_perks_adept",[res,cap]);
         },
         active(){
-            return global.stats.feat['adept'] && global.stats.achieve['whitehole'] && global.stats.achieve.whitehole.l > 0 ? true : false;
+            return checkAdept() > 0;
         },
         notes: [
             loc(`wiki_perks_progress_note1`,[50,loc(`wiki_resets_blackhole`)]),
+            loc(`wiki_perks_progress_note2`)
+        ]
+    },
+    master: {
+        name: loc(`perk_master`),
+        desc(wiki){
+            let rank = global.stats.feat['master'] && global.stats.achieve['ascended'] && global.stats.achieve.ascended.l > 0 ? Math.min(global.stats.achieve.ascended.l,global.stats.feat['master']) : 1;
+            let boost1 = wiki ? "1/2/3/4/5" : rank;
+            let boost2 = wiki ? "2/4/6/8/10" : rank * 2;
+            return loc("achieve_perks_master",[boost1,boost2,loc('evo_mitochondria_title'),loc('evo_eukaryotic_title'),loc('evo_membrane_title'),loc('evo_organelles_title'),loc('evo_nucleus_title')]);
+        },
+        active(){
+            return global.stats.feat['master'] && global.stats.achieve['ascended'] && global.stats.achieve.ascended.l > 0 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_progress_note1`,[75,loc(`wiki_resets_ascension`)]),
+            loc(`wiki_perks_progress_note2`)
+        ]
+    },
+    grandmaster: {
+        name: loc(`perk_grandmaster`),
+        desc(wiki){
+            let rank = global.stats.feat['grandmaster'] && global.stats.achieve['corrupted'] && global.stats.achieve.corrupted.l > 0 ? Math.min(global.stats.achieve.corrupted.l,global.stats.feat['grandmaster']) : 1;
+            let boost = wiki ? "1/2/3/4/5" : rank;
+            return loc("achieve_perks_grandmaster",[boost]);
+        },
+        active(){
+            return global.stats.feat['grandmaster'] && global.stats.achieve['corrupted'] && global.stats.achieve.corrupted.l > 0 ? true : false;
+        },
+        notes: [
+            loc(`wiki_perks_progress_note1`,[100,loc(`wiki_resets_infusion`)]),
             loc(`wiki_perks_progress_note2`)
         ]
     },
@@ -2459,6 +2623,21 @@ export function drawStats(){
     if (global.stats.aiappoc > 0){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_aiappoc_resets")}</span> {{ s.aiappoc | format }}</div>`);
     }
+    if (global.stats.matrix > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_matrix_resets")}</span> {{ s.matrix | format }}</div>`);
+    }
+    if (global.stats.retire > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_retire_resets")}</span> {{ s.retire | format }}</div>`);
+    }
+    if (global.stats.eden > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_eden_resets")}</span> {{ s.eden | format }}</div>`);
+    }
+    if (global.stats.terraform > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_terraform_resets")}</span> {{ s.terraform | format }}</div>`);
+    }
+    if (global.stats.geck > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_gecks")}</span> {{ s.geck | format }}</div>`);
+    }
 
     // Current Run Stats
     stats.append(`<div class="cstat"><span class="has-text-success">${loc("achieve_stats_current_game")}</span></div>`);
@@ -2473,6 +2652,12 @@ export function drawStats(){
     if (global.stats.sac > 0){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_sacrificed")}</span> {{ s.sac | format }}</div>`);
     }
+    if (global.stats.murders > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_murders")}</span> {{ s.murders | format }}</div>`);
+    }
+    if (global.stats.psykill > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_psymurders")}</span> {{ s.psykill | format }}</div>`);
+    }
     if (global.resource.hasOwnProperty('Thermite') && global.resource.Thermite.amount > 0){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_thermite")}</span> {{ r.Thermite.amount | res }}</div>`);
     }
@@ -2480,7 +2665,7 @@ export function drawStats(){
     let hallowed = getHalloween();
     if (hallowed.active){
         let trick = '';
-        if (global.stats.cfood >= 13 || global.race['cataclysm']){
+        if (global.stats.cfood >= 13 || global.race['cataclysm'] || global.race['orbit_decayed']){
             trick = `<span>${trickOrTreat(7,12,true)}</span>`;
         }
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_trickortreat")}</span> {{ s.cfood | format }} ${trick}</div>`);

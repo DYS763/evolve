@@ -2,16 +2,16 @@ import { global, tmp_vars, save, message_logs, message_filters, webWorker } from
 import { loc, locales } from './locale.js';
 import { setupStats, alevel } from './achieve.js';
 import { vBind, initMessageQueue, clearElement, flib, tagEvent, gameLoop, popover, clearPopper, powerGrid, easterEgg, trickOrTreat, drawIcon } from './functions.js';
-import { tradeRatio, atomic_mass, supplyValue, marketItem, containerItem, loadEjector, loadSupply, loadAlchemy, initResourceTabs, tradeSummery } from './resources.js';
+import { tradeRatio, atomic_mass, supplyValue, marketItem, containerItem, loadEjector, loadSupply, loadAlchemy, initResourceTabs, drawResourceTab, tradeSummery } from './resources.js';
 import { defineJobs, } from './jobs.js';
 import { clearSpyopDrag } from './governor.js';
-import { setPowerGrid, gridDefs, clearGrids } from './industry.js';
-import { defineGovernment, defineIndustry, defineGarrison, buildGarrison, commisionGarrison, foreignGov } from './civics.js';
-import { races, shapeShift } from './races.js';
-import { drawCity, drawTech, resQueue, clearResDrag } from './actions.js';
-import { renderSpace, ascendLab } from './space.js';
-import { renderFortress, buildFortress, drawMechLab, clearMechDrag } from './portal.js';
-import { drawShipYard, clearShipDrag } from './truepath.js';
+import { defineIndustry, setPowerGrid, gridDefs, clearGrids } from './industry.js';
+import { defineGovernment, defineGarrison, buildGarrison, commisionGarrison, foreignGov } from './civics.js';
+import { races, shapeShift, renderPsychicPowers } from './races.js';
+import { drawEvolution, drawCity, drawTech, resQueue, clearResDrag } from './actions.js';
+import { renderSpace, ascendLab, terraformLab } from './space.js';
+import { renderFortress, buildFortress, drawMechLab, clearMechDrag, drawHellObservations } from './portal.js';
+import { drawShipYard, clearShipDrag, renderTauCeti } from './truepath.js';
 import { arpa, clearGeneticsDrag } from './arpa.js';
 import { playFabStats } from './playfab.js';
 
@@ -49,7 +49,12 @@ export function mainVue(){
                     URL.revokeObjectURL(a.href);
                 };
                 const date = new Date();
-                downloadToFile(window.exportGame(), `evolve-${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}-${date.getHours()}-${date.getMinutes()}.txt`, 'text/plain');
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toFixed(0).padStart(2, '0');
+                const day = date.getDate().toFixed(0).padStart(2, '0');
+                const hour = date.getHours().toFixed(0).padStart(2, '0');
+                const minute = date.getMinutes().toFixed(0).padStart(2, '0');
+                downloadToFile(window.exportGame(), `evolve-${year}-${month}-${day}-${hour}-${minute}.txt`, 'text/plain');
             },
             importStringFile(){
                 let file = document.getElementById("stringPackFile").files[0];
@@ -140,6 +145,10 @@ export function mainVue(){
             numNotation(notation){
                 global.settings.affix = notation;
             },
+            setQueueStyle(style){
+                global.settings.queuestyle = style;
+                updateQueueStyle();
+            },
             icon(icon){
                 global.settings.icon = icon;
                 save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
@@ -203,7 +212,7 @@ export function mainVue(){
         }
     });
 
-    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16'].forEach(function(k){
+    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17'].forEach(function(k){
         popover(`settings${k}`, function(){
                 return loc(`settings${k}`);
             },
@@ -273,6 +282,17 @@ function tabLabel(lbl){
     }
 }
 
+function updateQueueStyle(){
+    ['standardqueuestyle', 'listqueuestyle', 'bulletlistqueuestyle', 'numberedlistqueuestyle']
+        .map(qstyle => {
+            if (global.settings.queuestyle === qstyle) {
+                $('html').addClass(qstyle);
+            } else {
+                $('html').removeClass(qstyle);
+            }
+        });
+}
+
 export function initTabs(){
     if (global.settings.tabLoad){
         loadTab(`mTabCivil`);
@@ -281,6 +301,7 @@ export function initTabs(){
         loadTab(`mTabResource`);
         loadTab(`mTabArpa`);
         loadTab(`mTabStats`);
+        loadTab(`mTabObserve`);
     }
     else {
         loadTab(global.settings.civTabs);
@@ -301,6 +322,7 @@ export function loadTab(tab){
         clearElement($(`#mTabResource`));
         clearElement($(`#mTabArpa`));
         clearElement($(`#mTabStats`));
+        clearElement($(`#mTabObserve`));
     }
     else {
         tagEvent('page_view',{ page_title: `Evolve - All Tabs` });
@@ -309,6 +331,7 @@ export function loadTab(tab){
         case 0:
             if (!global.settings.tabLoad){
                 tagEvent('page_view',{ page_title: `Evolve - Evolution` });
+                drawEvolution();
             }
             break;
         case 1:
@@ -354,6 +377,12 @@ export function loadTab(tab){
                             <span aria-hidden="true">{{ 'outer_local_space' | label }}</span>
                         </template>
                     </b-tab-item>
+                    <b-tab-item id="tauceti" :visible="s.showTau">
+                        <template slot="header">
+                            <h2 class="is-sr-only">{{ 'tab_tauceti' | label }}</h2>
+                            <span aria-hidden="true">{{ 'tab_tauceti' | label }}</span>
+                        </template>
+                    </b-tab-item>
                 </b-tabs>`);
                 vBind({
                     el: `#mTabCivil`,
@@ -369,6 +398,7 @@ export function loadTab(tab){
                                 clearElement($(`#galaxy`));
                                 clearElement($(`#portal`));
                                 clearElement($(`#outerSol`));
+                                clearElement($(`#tauCeti`));
                                 switch (tab){
                                     case 0:
                                         drawCity();
@@ -381,6 +411,9 @@ export function loadTab(tab){
                                         break;
                                     case 4:
                                         renderFortress();
+                                        break;
+                                    case 6:
+                                        renderTauCeti();
                                         break;
                                 }
                             }
@@ -397,10 +430,17 @@ export function loadTab(tab){
                     drawCity();
                     renderSpace();
                     renderFortress();
+                    renderTauCeti();
                 }
                 if (global.race['noexport']){
-                    clearElement($(`#city`));
-                    ascendLab();
+                    if (global.race['noexport'] === 'Race'){
+                        clearElement($(`#city`));
+                        ascendLab();
+                    }
+                    else if (global.race['noexport'] === 'Planet'){
+                        clearElement($(`#city`));
+                        terraformLab();
+                    }
                 }
             }
             break;
@@ -447,6 +487,12 @@ export function loadTab(tab){
                             <span aria-hidden="true">{{ 'tab_shipyard' | label }}</span>
                         </template>
                     </b-tab-item>
+                    <b-tab-item id="psychicPowers" class="psychicTab" :visible="s.showPsychic">
+                        <template slot="header">
+                            <h2 class="is-sr-only">{{ 'tab_psychic' | label }}</h2>
+                            <span aria-hidden="true">{{ 'tab_psychic' | label }}</span>
+                        </template>
+                    </b-tab-item>
                 </b-tabs>`);
                 vBind({
                     el: `#mTabCivic`,
@@ -466,6 +512,7 @@ export function loadTab(tab){
                                 clearElement($(`#military`));
                                 clearElement($(`#mechLab`));
                                 clearElement($(`#dwarfShipYard`));
+                                clearElement($(`#psychicPowers`));
                                 switch (tab){
                                     case 0:
                                         {
@@ -510,6 +557,11 @@ export function loadTab(tab){
                                             drawShipYard();
                                         }
                                         break;
+                                    case 6:
+                                        if (global.race['psychic'] && global.tech['psychic'] && global.race.species !== 'protoplasm'){
+                                            renderPsychicPowers();
+                                        }
+                                        break;
                                 }
                             }
                             return tab;
@@ -539,6 +591,9 @@ export function loadTab(tab){
                     drawMechLab();
                     if (global.race['truepath']){
                         drawShipYard();
+                    }
+                    if (global.race['psychic'] && global.tech['psychic']){
+                        renderPsychicPowers();
                     }
                 }
                 if (global.race['shapeshifter']){
@@ -635,77 +690,27 @@ export function loadTab(tab){
                                 switch (tab){
                                     case 0:
                                         {
-                                            initResourceTabs('market');
-                                            if (tmp_vars.hasOwnProperty('resource')){
-                                                Object.keys(tmp_vars.resource).forEach(function(name){
-                                                    let color = tmp_vars.resource[name].color;
-                                                    let tradable = tmp_vars.resource[name].tradable;
-                                                    if (tradable){
-                                                        var market_item = $(`<div id="market-${name}" class="market-item" v-show="r.display"></div>`);
-                                                        $('#market').append(market_item);
-                                                        marketItem(`#market-${name}`,market_item,name,color,true);
-                                                    }
-                                                });
-                                            }
-                                            tradeSummery();
+                                            drawResourceTab('market');
                                         }
                                         break;
                                     case 1:
                                         {
-                                            initResourceTabs('storage');
-                                            if (tmp_vars.hasOwnProperty('resource')){
-                                                Object.keys(tmp_vars.resource).forEach(function(name){
-                                                    let color = tmp_vars.resource[name].color;
-                                                    let stackable = tmp_vars.resource[name].stackable;
-                                                    if (stackable){
-                                                        var market_item = $(`<div id="stack-${name}" class="market-item" v-show="display"></div>`);
-                                                        $('#resStorage').append(market_item);
-                                                        containerItem(`#stack-${name}`,market_item,name,color,true);
-                                                    }
-                                                });
-                                            }
-                                            tradeSummery();
+                                            drawResourceTab('storage');
                                         }
                                         break;
                                     case 2:
                                         {
-                                            initResourceTabs('ejector');
-                                            if (tmp_vars.hasOwnProperty('resource')){
-                                                Object.keys(tmp_vars.resource).forEach(function(name){
-                                                    let color = tmp_vars.resource[name].color;
-                                                    if (atomic_mass[name]){
-                                                        loadEjector(name,color);
-                                                    }
-                                                });
-                                            }
+                                            drawResourceTab('ejector');
                                         }
                                         break;
                                     case 3:
                                         {
-                                            initResourceTabs('supply');
-                                            if (tmp_vars.hasOwnProperty('resource')){
-                                                Object.keys(tmp_vars.resource).forEach(function(name){
-                                                    let color = tmp_vars.resource[name].color;
-                                                    if (supplyValue[name]){
-                                                        loadSupply(name,color);
-                                                    }
-                                                });
-                                            }
+                                            drawResourceTab('supply');
                                         }
                                         break;
                                     case 4:
                                         {
-                                            initResourceTabs('alchemy');
-                                            if (tmp_vars.hasOwnProperty('resource')){
-                                                Object.keys(tmp_vars.resource).forEach(function(name){
-                                                    let color = tmp_vars.resource[name].color;
-                                                    let tradable = tmp_vars.resource[name].tradable;
-                                                    if (tradeRatio[name] && global.race.universe === 'magic'){
-                                                        global['resource'][name]['basic'] = tradable;
-                                                        loadAlchemy(name,color,tradable);
-                                                    }
-                                                });
-                                            }
+                                            drawResourceTab('alchemy');
                                         }
                                         break;
                                 }
@@ -829,12 +834,20 @@ export function loadTab(tab){
                 tagEvent('page_view',{ page_title: `Evolve - Settings` });
             }
             break;
+        case 'mTabObserve':
+        default:
+            if (!global.settings.tabLoad){
+                tagEvent('page_view',{ page_title: `Evolve - Hell Observation` });
+            }
+            if (global.portal.observe){
+                drawHellObservations(true);
+            }
+            break;
     }
     if ($(`#popper`).length > 0 && $(`#${$(`#popper`).data('id')}`).length === 0){
         clearPopper();
     }
 }
-
 
 export function index(){
     clearElement($('body'));
@@ -844,9 +857,11 @@ export function index(){
     // Top Bar
     $('body').append(`<div id="topBar" class="topBar">
         <h2 class="is-sr-only">Top Bar</h2>
-        <span class="planetWrap"><span class="planet">{{ race.species | planet }}</span><span class="universe" v-show="showUniverse()">{{ race.universe | universe }}</span></span>
+        <span class="planetWrap"><span class="planet">{{ race.species | planet }}</span><span class="universe" v-show="showUniverse()">{{ race.universe | universe }}</span><span class="simulation" v-show="showSim()">${loc(`evo_challenge_simulation`)}</span></span>
         <span class="calendar">
+            <span class="infoTimer" id="infoTimer"></span>
             <span v-show="city.calendar.day">
+                <span class="is-sr-only" v-html="sign()"></span><span id="astroSign" class="astro" v-html="getAstroSign()"></span>
                 <b-tooltip :label="moon()" :aria-label="moon()" position="is-bottom" size="is-small" multilined animated><i id="moon" class="moon wi"></i></b-tooltip>
                 <span class="year">${loc('year')} <span class="has-text-warning">{{ city.calendar.year }}</span></span>
                 <span class="day">${loc('day')} <span class="has-text-warning">{{ city.calendar.day }}</span></span>
@@ -866,11 +881,11 @@ export function index(){
 
     // Left Column
     columns.append(`<div class="column is-one-quarter leftColumn">
-        <div id="race" class="race columns is-mobile is-gapless">
+        <div id="race" class="race colHeader">
             <h2 class="is-sr-only">Race Info</h2>
-            <div class="column is-one-quarter name">{{ name() }}</div>
-            <div class="column is-half morale-contain"><span id="morale" v-show="city.morale.current" class="morale">${loc('morale')} <span class="has-text-warning">{{ city.morale.current | mRound }}%</span></div>
-            <div class="column is-one-quarter power"><span id="powerStatus" class="has-text-warning" v-show="city.powered"><span>MW</span> <span id="powerMeter" class="meter">{{ city.power | approx }}</span></span></div>
+            <div class="name">{{ name() }}</div>
+            <div class="morale-contain"><span id="morale" v-show="city.morale.current" class="morale">${loc('morale')} <span class="has-text-warning">{{ city.morale.current | mRound }}%</span></div>
+            <div class="power"><span id="powerStatus" class="has-text-warning" v-show="city.powered"><span>MW</span> <span id="powerMeter" class="meter">{{ city.power | replicate | approx }}</span></span></div>
         </div>
         <div id="sideQueue">
             <div id="buildQueue" class="bldQueue has-text-info" v-show="display"></div>
@@ -948,7 +963,8 @@ export function index(){
                 let checkExist = setInterval(function(){
                     if ($('#modalBox').length > 0){
                         clearInterval(checkExist);
-                        $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${loc('message_log')}</p>`));
+                        let egg16 = easterEgg(16,12);
+                        $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${loc('message_log')}${egg16.length > 0 ? egg16 : ''}</p>`));
 
                         var body = $('<div id="specialModal" class="modalBody vscroll"></div>');
                         $('#modalBox').append(body);
@@ -1097,7 +1113,7 @@ export function index(){
     mainColumn.append(content);
 
     content.append(`<h2 class="is-sr-only">Tab Navigation</h2>`);
-    let tabs = $(`<b-tabs v-model="s.civTabs" :animated="s.animated" @input="swapTab"></b-tabs>`);
+    let tabs = $(`<b-tabs id="mainTabs" v-model="s.civTabs" :animated="s.animated" @input="swapTab"></b-tabs>`);
     content.append(tabs);
 
     // Evolution Tab
@@ -1177,6 +1193,7 @@ export function index(){
         {i: 'turtle',       f: 'finish_line',       r: 2 },
         {i: 'floppy',       f: 'digital_ascension', r: 2 },
         {i: 'slime',        f: 'slime_lord',        r: 2 },
+        {i: 'lightning',    f: 'annihilation',      r: 2 },
         {i: 'heart',        f: 'valentine',         r: 1 },
         {i: 'clover',       f: 'leprechaun',        r: 1 },
         {i: 'bunny',        f: 'easter',            r: 1 },
@@ -1248,6 +1265,7 @@ export function index(){
                 <b-dropdown-item v-on:click="setTheme('dracula')">{{ 'theme_dracula' | label }}</b-dropdown-item>
                 ${hideEgg}
             </b-dropdown>
+
             <span>{{ 'units' | label }} </span>
             <b-dropdown hoverable>
                 <button class="button is-primary" slot="trigger">
@@ -1268,6 +1286,18 @@ export function index(){
                 </button>
                 <b-dropdown-item v-on:click="icon('star')">${drawIcon('star',16,irank)} {{ 'star' | label }}</b-dropdown-item>
                 ${iconlist}
+            </b-dropdown>
+
+            <span>{{ 'queuestyle' | label }} </span>
+            <b-dropdown hoverable>
+                <button class="button is-primary" slot="trigger">
+                    <span>{{ s.queuestyle | label }}</span>
+                    <i class="fas fa-sort-down"></i>
+                </button>
+                <b-dropdown-item v-on:click="setQueueStyle('standardqueuestyle')">{{ 'standardqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('listqueuestyle')">{{ 'listqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('bulletlistqueuestyle')">{{ 'bulletlistqueuestyle' | label }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="setQueueStyle('numberedlistqueuestyle')">{{ 'numberedlistqueuestyle' | label }}</b-dropdown-item>
             </b-dropdown>
         </div>
         <div id="localization" class="localization">
@@ -1305,6 +1335,7 @@ export function index(){
         <b-switch class="setting" v-model="s.pause" @input="unpause"><span class="settings12" aria-label="${loc('settings12')}">{{ 'pause' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.mKeys"><span class="settings1" aria-label="${loc('settings1')}">{{ 'm_keys' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.cLabels"><span class="settings5" aria-label="${loc('settings5')}">{{ 'c_cat' | label }}</span></b-switch>
+        <b-switch class="setting" v-model="s.alwaysPower"><span class="settings17" aria-label="${loc('settings17')}">{{ 'always_power' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qKey"><span class="settings6" aria-label="${loc('settings6')}">{{ 'q_key' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny"><span class="settings7" aria-label="${loc('settings7')}">{{ 'q_any' | label }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny_res"><span class="settings14" aria-label="${loc('settings14')}">{{ 'q_any_res' | label }}</span></b-switch>
@@ -1414,6 +1445,13 @@ export function index(){
 
     tabs.append(settings);
 
+    // (Hidden Last Tab) Hell Observation Tab
+    let observe = $(`<b-tab-item disabled>
+        <template slot="header"></template>
+        <div id="mTabObserve"></div>
+    </b-tab-item>`);
+    tabs.append(observe);
+
     // Right Column
     columns.append(`<div id="queueColumn" class="queueCol column"></div>`);
 
@@ -1433,8 +1471,8 @@ export function index(){
                 <h2 class="is-sr-only">External Links</h2>
                 <ul class="external-links">
                     <li><a href="wiki.html" target="_blank">Wiki</a></li>
-<!--                    <li><a href="https://shimo.im/sheets/tg6VPQgCKhrYW9QG/" target="_blank" style="color: green;">进化攻略本（作为wiki补充）</a></li>-->
-<!--                    <li><a href="https://www.reddit.com/r/EvolveIdle/" target="_blank">Reddit</a></li>
+                    <li><a href="https://docs.qq.com/sheet/DSGZueEtwcHdZclNT" target="_blank" style="color: green;">进化攻略本（作为wiki补充）</a></li>
+                    <li><a href="https://www.reddit.com/r/EvolveIdle/" target="_blank">Reddit</a></li>
                     <li><a href="https://discord.gg/dcwdQEr" target="_blank">Discord</a></li>
                     <li><a href="https://github.com/pmotschmann/Evolve" target="_blank">GitHub</a></li>
                     <li><a href="https://www.patreon.com/demagorddon" target="_blank">Patreon</a></li>

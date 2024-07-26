@@ -3,6 +3,389 @@ import { clearElement } from './../functions.js';
 
 const changeList = [
     {
+        version: `1.3.12`,
+        date: `3/30/2024`,
+        changes: [
+            `Fixed Easter Event.`
+        ]
+    },
+    {
+        version: `1.3.11`,
+        date: `2/19/2024`,
+        changes: [
+            `Community fixes:`,
+            `New Power settings.`,
+            `Fixed loot bug with Gravity Well and Dark Energy.`,
+            `Fixed pet names in pet events.`,
+            `Fixed issue with Aquarius sign and Tourist Centers.`,
+            `Fixed bugs with Arraak and Human thralls.`,
+            `Many bug fixes related to High Population trait.`,
+            `Many language updates.`
+        ]
+    },
+    {
+        version: `1.3.10`,
+        date: `1/23/2024`,
+        changes: [
+            `Added Gravity Well challenge mode.`,
+            `Prepping the Bioseed ship for launch now has a Helium-3 cost.`,
+            `Added new pet minor event`,
+            `Polish language translation by Wiedźmin.`,
+            `German language translation by FutterSillo.`,
+            `Various UI improvements and language updates.`
+        ]
+    },
+    {
+        version: `1.3.9`,
+        date: `8/20/2023`,
+        changes: [
+            `Pressing the same tab key multiple times will now cycle the subtabs.`,
+            `Reduced Mana costs of Improved Concealment, Study Corrupt Gem, & Outerplane Summon in Witch Hunter for non-gold star players.`,
+            `Fixed Bilateral Symmetry DNA bonus.`,
+            `Updated Korean and Chinese langs.`,
+            `Screen Reader improvement for achievements display.`
+        ]
+    },
+    {
+        version: `1.3.8`,
+        revision: `a`,
+        date: `6/1/2023`,
+        changes: [
+            `Fixed high pop scaling.`,
+        ]
+    },
+    {
+        version: `1.3.8`,
+        date: `6/1/2023`,
+        changes: [
+            `Unfathomable bug fixes.`,
+            `Psychic powers up time now scale with rank of Ancient Nightmare.`,
+            `Additional Psychic power upgrades.`,
+            `Intergalactic Raider renamed to Corsair.`,
+        ]
+    },
+    {
+        version: `1.3.7`,
+        revision: `a`,
+        date: `5/30/2023`,
+        changes: [
+            `Fixed issue with drawing the same alien species twice in intergalactic content.`,
+            `Adjusted Mana costs for some research techs in Witch Hunter.`,
+        ]
+    },
+    {
+        version: `1.3.7`,
+        date: `5/29/2023`,
+        changes: [
+            `Added Magic universe exclusive challenge: Witch Hunter.`,
+            `Reduced Encrypted Data cost of Data Analysis, Advanced Medkits, Automated Warehousing, Elerium Extraction, and Drone Warfare techs.`,
+            `Star Forge smelting bonus rebalanced.`,
+            `Antimatter Dark Energy effect now applies to Truepath Ship power generation.`,
+            `Fixed Magocracy Crystal bonus.`,
+            `Reduced Crystal cost of Alchemy.`,
+            `Fixed Humpback trait rank scaling.`,
+            `Infiltrator can now steal Alien Biotech on Truepath.`,
+            `Fixed brownout issue with using Replicator Gov task when constructing a new powered building.`,
+            `Fixed rejuvenated trashed planet bonus.`,
+            `Fixed orbit period on reterraformed planets.`,
+        ]
+    },
+    {
+        version: `1.3.6`,
+        date: `4/22/2023`,
+        changes: [
+            `Added Astrological signs.`,
+            `Added Motivated Event.`,
+            `Operating Bases now function as Hospitals in Orbit Decay scenario.`,
+            `Stellar Forge is now locked to using Star Fuel for smelting.`,
+            `Species with the Forge trait can now use Inferno Fuel and Star Fuel.`,
+            `Reduced Wireless Signal needed to Contact womlings in Lone Survivor.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `c`,
+        date: `4/16/2023`,
+        changes: [
+            `Made Egg #17 easier to get in Cataclysm mode.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `b`,
+        date: `4/9/2023`,
+        changes: [
+            `Increased egg accessibility with certain traits or challenge modes.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `a`,
+        date: `4/8/2023`,
+        changes: [
+            `Fixed a bug that caused eggs 16-18 not to count for unlocking the egg hunt feat.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        date: `4/7/2023`,
+        changes: [
+            `Avian species now have the Flier trait.`,
+            `Avian Rigid trait replaced with Sky Lover.`,
+            `Added Wireless storage to High-Tech farm in isolation`,
+            `Fixed truepath dreadnought power costs.`,
+            `Fixed a bug that could assign extra challenge genes.`,
+            `Fixed a bug with changing languages with active Tau Ceti content.`,
+            `Fixed many issues with preload tab content in the early game.`,
+        ]
+    },
+    {
+        version: `1.3.4`,
+        revision: `b`,
+        date: `3/30/2023`,
+        changes: [
+            `Prevented some bugs caused by distributed power mode from occurring.`,
+            `You can now unlock World Domination, Illuminati, Syndicate, and Pacifist in Truepath.`
+        ]
+    },
+    {
+        version: `1.3.4`,
+        revision: `a`,
+        date: `3/25/2023`,
+        changes: [
+            `A restore point is now made if you select isolation protocol.`,
+        ]
+    },
+    {
+        version: `1.3.4`,
+        date: `3/24/2023`,
+        changes: [
+            `Evolving Synth can now choose imitation race from any species killed by an AI Apocalypse.`,
+            `Fixed issue with miscalculating low fuel usage for various power generating structures.`,
+            `Extractor Ship Isolation output boosted by 20%.`,
+            `Added additional Hooved reskins.`,
+            `Fixed various issues with Preload Tab Content.`,
+            `Explorer Ship config is now locked down for Engine, Sensor, and Weapon components.`,
+            `Skilled Servants assigned to craft inactive resources will now be refunded.`,
+        ]
+    },
+    {
+        version: `1.3.3`,
+        revision: `a`,
+        date: `3/20/2023`,
+        changes: [
+            `Fixed a bug that could cause the Test Launch to be unavailable.`,
+        ]
+    },
+    {
+        version: `1.3.3`,
+        date: `3/15/2023`,
+        changes: [
+            `Rebalanced Soul Gem drop mechanics.`,
+            `Added Annihilation Feat.`,
+            `Added additional Mass Ejector Optimizer config mode.`,
+            `Servants are no longer affected by most racial traits.`,
+            `The Lone Survivor can no longer benefit from Hivemind.`,
+            `Fixed High Pop issue with Pit Miners.`,
+            `Fixed bug with unlocking Replicator without a Governor.`,
+        ]
+    },
+    {
+        version: `1.3.2`,
+        revision: `c`,
+        date: `3/8/2023`,
+        changes: [
+            `Fixed cataclysm reset while having preload tab content enabled.`,
+        ]
+    },
+    {
+        version: `1.3.2`,
+        revision: `b`,
+        date: `3/5/2023`,
+        changes: [
+            `Fixed Rock Quarry under industry tab for Smoldering players.`,
+        ]
+    },
+    {
+        version: `1.3.2`,
+        revision: `a`,
+        date: `3/5/2023`,
+        changes: [
+            `Adjusted hell calculation.`,
+        ]
+    },
+    {
+        version: `1.3.2`,
+        date: `3/4/2023`,
+        changes: [
+            `High-Tech Factory changed back to tool modifier, however value is increased from original 25% to 90%.`,
+            `Advanced Material Synthesis increased from 50% to 65%.`,
+            `Added new interaction between Hell Surveyors and Drone victims.`,
+            `Fixed bug that would cause Replicator Governor task to swap resources when focusing a resource without a cap.`,
+            `Fixed inability to produce Chrysotile in Isolation.`
+        ]
+    },
+    {
+        version: `1.3.1`,
+        date: `3/3/2023`,
+        changes: [
+            `Added Advanced Material Synthesis tech to Isolation path.`,
+            `High-Tech Factory crafting bonus changed from a Tool modifier to a direct multiplier.`,
+            `Updated Mass Ejector Optimizer logic.`,
+            `Fixed a bug that broke Cataclysm reset.`,
+            `Fixed fuel calculation bug with Moon Bases and Spaceports.`,
+            `Fixed issue with self replicating Synth and Nano.`,
+            `Fixed bugs with purchasing CRISPR techs in Antimatter universe.`,
+        ]
+    },
+    {
+        version: `1.3.0`,
+        revision: `b`,
+        date: `3/1/2023`,
+        changes: [
+            `Fixed issue with Mass Ejector Optimizer gov task breaking the governor subtab.`,
+        ]
+    },
+    {
+        version: `1.3.0`,
+        revision: `a`,
+        date: `3/1/2023`,
+        changes: [
+            `Fixed Antimatter universe.`,
+        ]
+    },
+    {
+        version: `1.3.0`,
+        date: `3/1/2023`,
+        changes: [
+            `The True Path has been extended, explore Tau Ceti and expand your civilization.`,
+            `Added Perks: Evolve Master and Evolve Grandmaster.`,
+            `Added Distributed Low Power mode setting.`,
+            `Added Precognition CRISPR upgrade.`,
+            `Strong trait now buffs basic jobs but has a weaker effect on manual resource collection.`,
+            `Ships in Truepath can now only be scrapped at the Shipyard.`,
+            `Truepath Sensor Range and Costs adjusted. Range now depends partly on base ship class.`,
+            `Queue stacks now indicate first block vs last blocking resource with a gradient indicator.`,
+            `Added screen reader improvements for blocking resources.`,
+            `You can no longer unlock Anarchist by Cataclysm.`,
+            `Syndicate will now also steal food from Biodomes.`,
+            `Reinforced Shed upgrade now requires unlocking Iron Mining.`,
+            `You must now construct a Titan Habitat before a Titan Mine.`,
+            `Removed dark background effect from modal popups.`,
+            `Increased Entrepreneur Governor trade bonus from 75% to 125% and Bank capacity boost from 10% to 12%.`,
+            `Increased Media Governor morale bonuses and Library bonus.`,
+            `Increased Soldier Governor combat bonus from 5% to 25%.`,
+            `Increased Educator Governor knowledge bonus from 5% to 6%.`,
+            `Increased Spiritualist Governor worker bonus from 10% to 20% and tourism bonus from $2 to $5 per Temple.`,
+            `Increased Noble Governor tax cap bonus from 10% to 20%.`,
+            `Bluecollar Governor now increases output of Coal and Oil power plants and boosts Miners, Smelter, and Oil Derrick.`,
+            `Bureaucrat Governor now provides a slight boost to government effects.`,
+        ]
+    },
+    {
+        version: `1.2.21`,
+        date: `1/10/2023`,
+        changes: [
+            `New Achievement filtering options in Wiki.`,
+            `Updated Chinese lang file.`,
+            `Updated Korean lang file.`
+        ]
+    },
+    {
+        version: `1.2.20`,
+        date: `9/16/2022`,
+        changes: [
+            `New homelessness system.`,
+            `Factory, Mining Droids, and Graphene Plants will remember resource assignment after a low power shutdown.`,
+            `Terraforming and Ascension can no longer be queued or multi-clicked.`,
+            `AI Cores show correct bonus in tooltip.`,
+            `Stealing Rocketry will now unlock rival in Truepath.`,
+            `Playful will no longer remove unemployed stress with no hunters.`,
+            `Andromeda Citizens will no longer stick around if abandoned by a stargate shutdown.`,
+            `Fixed various bugs with mutating in or out some traits.`,
+            `Made some improvements for screen readers to determine active state of challenges.`
+        ]
+    },
+    {
+        version: `1.2.19`,
+        revision: `a`,
+        date: `8/21/2022`,
+        changes: [
+            `Home Planet Orbital structures are now merged with the Moon instead of Red Planet in Cataclysm.`,
+        ]
+    },
+    {
+        version: `1.2.19`,
+        date: `8/20/2022`,
+        changes: [
+            `Added rank scaling effects to traits: Carnivore, Hooved, Leathery, Unified, & Magnificent.`,
+            `Structures orbiting the home planet are now moved to the Red planet after Orbit Decay or during Cataclysm.`,
+            `Fixed a bug with deactivating fuel consuming structures when fuel runs dry.`,
+            `Already active Governor tasks will no longer display for assignment in other task slots.`,
+            `Constructing a Stellar or Infernal Forge will now assign Iron as a default resource instead of nothing.`,
+            `Buffed effects of Star Forge fueled smelting.`,
+            `Fixed an incorrect source label for money storage in Orbit Decay.`,
+        ]
+    },
+    {
+        version: `1.2.18`,
+        revision: `a`,
+        date: `8/14/2022`,
+        changes: [
+            `Fixed ARPA queueing.`,
+        ]
+    },
+    {
+        version: `1.2.18`,
+        date: `8/14/2022`,
+        changes: [
+            `More accurate timers when using Governor Trash Management task.`,
+            `Optimistic Min Morale effect now scales with trait rank.`,
+            `Fixed TP loot table when Assaulting or Sieging rival.`,
+        ]
+    },
+    {
+        version: `1.2.17`,
+        revision: `a`,
+        date: `8/10/2022`,
+        changes: [
+            `Cheese Event power is now scaled with your cheese level.`,
+            `Fixed Soft Reset bug with Rejuvenated.`,
+        ]
+    },
+    {
+        version: `1.2.17`,
+        date: `8/10/2022`,
+        changes: [
+            `New Hell stats tracking and analytics.`,
+            `Fixed Genetics not unlocking in Cataclysm.`,
+            `Fixed many High Pop scaling interactions.`,
+            `Fixed some loading bugs with wiki when no save data is present.`,
+            `Updated various wiki entries and calculators.`,
+            `Updated Pig Latin.`
+        ]
+    },
+    {
+        version: `1.2.16`,
+        revision: `a`,
+        date: `8/8/2022`,
+        changes: [
+            `Fixed OD bugs with Ziggurat, Garage, and Fabrication.`,
+            `Fixed Launch Facility sometimes getting stuck in queue.`
+        ]
+    },
+    {
+        version: `1.2.16`,
+        date: `8/4/2022`,
+        changes: [
+            `Added Orbit Decay Challenge.`,
+            `Added Retrograde planetary trait.`,
+            `New achievement: Better dead than red.`,
+            `New CRISPR upgrade: Civil Service.`,
+            `Other stuff the dev was too lazy to document.`
+        ]
+    },
+    {
         version: `1.2.15`,
         revision: `a`,
         date: `7/1/2022`,

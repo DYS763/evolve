@@ -1,8 +1,8 @@
-import { global, p_on } from './vars.js';
+import { global, seededRandom, p_on, support_on, sizeApproximation } from './vars.js';
 import { loc } from './locale.js';
-import { races, traits } from './races.js';
+import { races, traits, fathomCheck } from './races.js';
 import { govTitle, garrisonSize, armyRating } from './civics.js';
-import { housingLabel, drawTech } from './actions.js';
+import { housingLabel, drawTech, actions } from './actions.js';
 import { tradeRatio } from './resources.js';
 import { checkControlling } from './civics.js';
 import { govActive } from './governor.js';
@@ -47,6 +47,16 @@ export const events = {
             return loc('event_inspiration');
         }
     },
+    motivation: {
+        reqs: {
+            tech: 'primitive',
+        },
+        type: 'major',
+        effect(){
+            global.race['motivated'] = Math.rand(300,600);
+            return loc('event_motivation');
+        }
+    },
     fire: {
         reqs: {
             resource: 'Lumber',
@@ -72,15 +82,23 @@ export const events = {
         },
         effect(){
             let at_risk = 0;
-            if (global.city.hasOwnProperty('basic_housing')){
-                at_risk += global.city.basic_housing.count;
+            let planet = races[global.race.species].home;
+            if (global.race['cataclysm'] || global.race['orbit_decayed']){
+                if (global.space.hasOwnProperty('living_quarters')){
+                    at_risk += Math.round(support_on['living_quarters'] * actions.space.spc_red.living_quarters.citizens());
+                }
+                planet = races[global.race.species].solar.red;
             }
-            if (global.city.hasOwnProperty('cottage')){
-                at_risk += global.city.cottage.count * 2;
-            }
-            if (global.city.hasOwnProperty('apartment')){
-                let extraVal = govActive('extravagant',2);
-                at_risk += p_on['apartment'] * (extraVal ? 5 + extraVal : 5);
+            else {
+                if (global.city.hasOwnProperty('basic_housing')){
+                    at_risk += global.city.basic_housing.count * actions.city.basic_housing.citizens();
+                }
+                if (global.city.hasOwnProperty('cottage')){
+                    at_risk += global.city.cottage.count * actions.city.cottage.citizens();
+                }
+                if (global.city.hasOwnProperty('apartment')){
+                    at_risk += p_on['apartment'] * actions.city.apartment.citizens();
+                }
             }
             if (at_risk > global.resource[global.race.species].amount){
                 at_risk = global.resource[global.race.species].amount;
@@ -105,7 +123,7 @@ export const events = {
                 global.city['firestorm'] = Math.rand(time,time * 10);
             }
 
-            return loc(global.city.biome === 'oceanic' ? 'event_flare2' : 'event_flare',[races[global.race.species].home, loss.toLocaleString()]);
+            return loc(global.city.biome === 'oceanic' ? 'event_flare2' : 'event_flare',[planet, loss.toLocaleString()]);
         }
     },
     raid: {
@@ -126,8 +144,8 @@ export const events = {
             let enemy = Math.rand(25,50) * eAdv;
 
             let injured = global.civic.garrison.wounded > garrisonSize() ? garrisonSize() : global.civic.garrison.wounded;
-            let killed =  Math.floor(Math.seededRandom(0,injured));
-            let wounded = Math.floor(Math.seededRandom(0,garrisonSize() - injured));
+            let killed =  Math.floor(seededRandom(0,injured));
+            let wounded = Math.floor(seededRandom(0,garrisonSize() - injured));
             if (global.race['instinct']){
                 killed = Math.round(killed / 2);
                 wounded = Math.round(wounded / 2);
@@ -181,8 +199,8 @@ export const events = {
             let enemy = (global.civic.foreign.gov0.mil + global.civic.foreign.gov1.mil + global.civic.foreign.gov2.mil) * eAdv;
 
             let injured = global.civic.garrison.wounded > garrisonSize() ? garrisonSize() : global.civic.garrison.wounded;
-            let killed =  Math.floor(Math.seededRandom(0,injured));
-            let wounded = Math.floor(Math.seededRandom(0,garrisonSize() - injured));
+            let killed =  Math.floor(seededRandom(0,injured));
+            let wounded = Math.floor(seededRandom(0,garrisonSize() - injured));
 
             if (global.race['instinct']){
                 killed = Math.round(killed / 2);
@@ -221,7 +239,7 @@ export const events = {
         },
         type: 'major',
         condition(){
-            return global.race['truepath'] && !checkControlling(`gov0`) && global.civic.foreign.gov0.hstl > 60 ? true : false;
+            return global.race['truepath'] && !global.tech['isolation'] && !checkControlling(`gov0`) && global.civic.foreign.gov0.hstl > 60 ? true : false;
         },
         effect(){
             return pillaged(`gov0`);
@@ -234,7 +252,7 @@ export const events = {
         },
         type: 'major',
         condition(){
-            return global.race['truepath'] && !checkControlling(`gov1`) && global.civic.foreign.gov1.hstl > 60 ? true : false;
+            return global.race['truepath'] && !global.tech['isolation'] && !checkControlling(`gov1`) && global.civic.foreign.gov1.hstl > 60 ? true : false;
         },
         effect(){
             return pillaged(`gov1`);
@@ -247,7 +265,7 @@ export const events = {
         },
         type: 'major',
         condition(){
-            return global.race['truepath'] && !checkControlling(`gov2`) && global.civic.foreign.gov2.hstl > 60 ? true : false;
+            return global.race['truepath'] && !global.tech['isolation'] && !checkControlling(`gov2`) && global.civic.foreign.gov2.hstl > 60 ? true : false;
         },
         effect(){
             return pillaged(`gov2`);
@@ -259,10 +277,22 @@ export const events = {
         },
         type: 'major',
         condition(){
-            return global.race['truepath'] && global.tech['rival'] && global.civic.foreign.gov3.hstl > 60 ? true : false;
+            return global.race['truepath'] && !global.tech['isolation'] && global.tech['rival'] && global.civic.foreign.gov3.hstl > 60 ? true : false;
         },
         effect(){
             return pillaged(`gov3`,true);
+        }
+    },
+    witch_hunt_crusade: {
+        reqs: {
+            tech: 'magic',
+        },
+        type: 'major',
+        condition(){
+            return global.race['witch_hunter'] && global.resource.Sus.amount >= 100 ? true : false;
+        },
+        effect(){
+            return pillaged(`witchhunt`,true);
         }
     },
     terrorist: {
@@ -272,8 +302,8 @@ export const events = {
         },
         type: 'major',
         effect(){            
-            let killed = Math.floor(Math.seededRandom(0,global.civic.garrison.wounded));
-            let wounded = Math.floor(Math.seededRandom(0,global.civic.garrison.workers - global.civic.garrison.wounded));
+            let killed = Math.floor(seededRandom(0,global.civic.garrison.wounded));
+            let wounded = Math.floor(seededRandom(0,global.civic.garrison.workers - global.civic.garrison.wounded));
             if (global.race['instinct']){
                 killed = Math.round(killed / 2);
                 wounded = Math.round(wounded / 2);
@@ -312,7 +342,7 @@ export const events = {
         effect(){
             global.tech['quaked'] = 1;
             drawTech();
-            return loc('event_quake',[global.race['cataclysm'] ? races[global.race.species].solar.red : races[global.race.species].home]);
+            return loc('event_quake',[global.race['cataclysm'] || global.race['orbit_decayed'] ? races[global.race.species].solar.red : races[global.race.species].home]);
         }
     },
     doom: {
@@ -465,6 +495,10 @@ export const events = {
         type: 'major',
         condition(){
             if (global.race['elusive']){
+                return false;
+            }
+            let fathom = fathomCheck('satyr');
+            if (fathom > 0.25){
                 return false;
             }
             for (let i=0; i<3; i++){
@@ -627,16 +661,38 @@ export const events = {
     shooting_star: basicEvent('shooting_star','primitive'),
     tumbleweed: basicEvent('tumbleweed','primitive'),
     flashmob: basicEvent('flashmob','high_tech'),
+    witch_hunt: {
+        reqs: {
+            tech: 'magic',
+        },
+        type: 'minor',
+        condition(){
+            return global.race['witch_hunter'] && global.resource.Sus.amount >= 50 && global.civic.scientist.workers > 0 ? true : false;
+        },
+        effect(){
+            global.resource[global.race.species].amount--;
+            global.civic.scientist.workers--;
+            global.civic.scientist.assigned--;
+            return loc(`witch_hunter_witch_hunt`);
+        }
+    },
     heatwave: {
         reqs: {
             tech: 'primitive',
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && global.city.calendar.temp !== 2){
-                return true;
+            // No planet or already hot
+            if (global.race['cataclysm'] || global.race['orbit_decayed'] || global.city.calendar.temp === 2){
+                return false;
             }
-            return false;
+            // Winter on tundra or taiga biome is always cold
+            // Eden is idyllic, so normally cannot be hot except in summer. For heat wave, allow in spring, summer, or autumn.
+            if (global.city.calendar.season === 3 && ['tundra','taiga','eden'].includes(global.city.biome)){
+                return false;
+            }
+            // Always allow heat wave on other biomes, even during winter
+            return true;
         },
         effect(){
             global.city.calendar.temp = 2;
@@ -650,10 +706,21 @@ export const events = {
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && global.city.calendar.temp !== 0){
-                return true;
+            // No planet or already cold
+            if (global.race['cataclysm'] || global.race['orbit_decayed'] || global.city.calendar.temp === 0){
+                return false;
             }
-            return false;
+            // Hellscape is never cold (except allow on custom planet hellscape with permafrost)
+            if (global.city.biome === 'hellscape' && !global.city.ptrait.includes('permafrost')){
+                return false;
+            }
+            // Summer on volcanic or ashland biome is always hot
+            // Eden is idyllic, so normally cannot be cold except in winter. For cold snap, allow in autumn, winter, or spring.
+            if (global.city.calendar.season === 1 && ['ashland','volcanic','eden'].includes(global.city.biome)){
+                return false;
+            }
+            // Always allow cold snap on other biomes, even during summer
+            return true;
         },
         effect(){
             global.city.calendar.temp = 0;
@@ -708,7 +775,7 @@ export const events = {
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && global.city.calendar.weather !== 0){
+            if (!global.race['cataclysm'] && !global.race['orbit_decayed'] && global.city.calendar.weather !== 0){
                 return true;
             }
             return false;
@@ -724,7 +791,7 @@ export const events = {
         },
         type: 'minor',
         condition(){
-            if (!global.race['cataclysm'] && global.city.calendar.weather !== 1){
+            if (!global.race['cataclysm'] && !global.race['orbit_decayed'] && global.city.calendar.weather !== 1){
                 return true;
             }
             return false;
@@ -781,7 +848,8 @@ export const events = {
             return false;
         },
         effect(){
-            global.race['cheese'] = Math.rand(10,25);
+            let resets = global.stats.hasOwnProperty('reset') ? global.stats.reset + 1 : 1;
+            global.race['cheese'] = Math.rand(10,10 + resets);
             return loc(`event_cheese`);
         }
     },
@@ -790,6 +858,25 @@ export const events = {
         let rumor = Math.rand(0,10);
         return loc(`event_rumor_type${rumor}`);
     }),
+    pet: {
+        reqs: {
+            tech: 'primitive',
+        },
+        type: 'minor',
+        effect(){
+            if (global.race['pet']){
+                let interaction = Math.rand(0,10);
+                return loc(`event_${global.race.pet.type}_interaction${interaction}`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]);
+            }
+            else {
+                global.race['pet'] = {
+                    type: Math.rand(0,2) === 0 ? 'cat' : 'dog',
+                    name: Math.rand(0,10)
+                };
+                return loc(`event_pet_${global.race.pet.type}`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]);
+            }
+        }
+    },
 };
 
 function basicEvent(title,tech,func,cond){
@@ -821,11 +908,13 @@ function slaveLoss(type,string){
             trait: 'slaver',
             tech: 'slaves'
         },
+        condition(){
+            return global.race['cataclysm'] || global.race['orbit_decayed'] || global.tech['isolation'] ? false : true;
+        },
         type: type,
         effect(){
-            if (global.city['slave_pen'] && global.city.slave_pen.slaves > 0){
-                global.city.slave_pen.slaves--;
-                global.resource.Slave.amount = global.city.slave_pen.slaves;
+            if (global.city['slave_pen'] && global.resource.Slave.amount > 0){
+                global.resource.Slave.amount--;
                 return loc(`event_slave_${string}`);
             }
             else {
@@ -838,11 +927,11 @@ function slaveLoss(type,string){
 function pillaged(gov,serious){
     let army = armyRating(garrisonSize(),'army',global.civic.garrison.wounded);
     let eAdv = global.tech['high_tech'] ? global.tech['high_tech'] + 1 : 1;
-    let enemy = global.civic.foreign[gov].mil * (1 + Math.floor(Math.seededRandom(0,10) - 5) / 10) * eAdv;
+    let enemy = (gov === 'witchhunt' ? 1000 : global.civic.foreign[gov].mil) * (1 + Math.floor(seededRandom(0,10) - 5) / 10) * eAdv;
 
     let injured = global.civic.garrison.wounded > garrisonSize() ? garrisonSize() : global.civic.garrison.wounded;
-    let killed = garrisonSize() > 0 ? Math.floor(Math.seededRandom(1,injured)) : 0;
-    let wounded = Math.floor(Math.seededRandom(0,garrisonSize() - injured));
+    let killed = garrisonSize() > 0 ? Math.floor(seededRandom(1,injured)) : 0;
+    let wounded = Math.floor(seededRandom(0,garrisonSize() - injured));
     if (global.race['instinct']){
         killed = Math.round(killed / 2);
         wounded = Math.round(wounded / 2);
@@ -861,7 +950,7 @@ function pillaged(gov,serious){
         }
     }
 
-    let enemy_name = loc(`civics_gov${global.civic.foreign[gov].name.s0}`,[global.civic.foreign[gov].name.s1]);
+    let enemy_name = gov === 'witchhunt' ? loc(`witch_hunter_crusade`) : loc(`civics_gov${global.civic.foreign[gov].name.s0}`,[global.civic.foreign[gov].name.s1]);
 
     if (army > enemy){
         return loc('event_pillaged1',[enemy_name,killed.toLocaleString(),wounded.toLocaleString()]);
@@ -878,10 +967,10 @@ function pillaged(gov,serious){
                 if (remain < 0){ remain = 0; }
                 global.resource[res].amount = remain;
                 if (res === 'Money'){
-                    stolen.push(`$${loss}`);
+                    stolen.push(`$${sizeApproximation(loss)}`);
                 }
                 else {
-                    stolen.push(`${loss} ${global.resource[res].name}`);
+                    stolen.push(`${sizeApproximation(loss)} ${global.resource[res].name}`);
                 }
             }
         });
@@ -942,18 +1031,21 @@ export function eventList(type){
                             isOk = false;
                         }
                         break;
+
                     case 'high_tax_rate':
-                        if (global.civic.taxes.tax_rate <= [events[event].reqs[req]]){
+                        // there are currently no events with the high_tax_rate requirement
+                        if (global.civic.taxes.tax_rate <= events[event].reqs[req]){
                             isOk = false;
                         }
                         break;
                     case 'low_morale':
-                        if (global.city.morale.current >= [events[event].reqs[req]]){
+                        if (global.city.morale.current >= events[event].reqs[req]){
                             isOk = false;
                         }
                         break;
                     case 'biome':
-                        if (global.city.biome !== [events[event].reqs[req]]){
+                        // there are currently no events with the biome requirement
+                        if (global.city.biome !== events[event].reqs[req]){
                             isOk = false;
                         }
                         break;
@@ -974,7 +1066,7 @@ export function eventList(type){
 }
 
 function tax_revolt(){
-    let special_res = ['Soul_Gem', 'Corrupt_Gem', 'Codex', 'Demonic_Essence', 'Blood_Stone', 'Artifact']
+    let special_res = ['Soul_Gem', 'Corrupt_Gem', 'Codex', 'Demonic_Essence']
     let ramp = global.civic.govern.type === 'oligarchy' ? 45 : 25;
     let aristoVal = govActive('aristocrat',2);
     if (aristoVal){

@@ -1,7 +1,8 @@
 import { global } from './../vars.js';
 import { universeAffix, alevel } from './../achieve.js';
 import { loc } from './../locale.js';
-import { vBind, challenge_multiplier, calcPrestige, darkEffect } from './../functions.js';
+import { vBind, challenge_multiplier, getResetConstants, calcPrestige, darkEffect } from './../functions.js';
+import { jobScale } from './../jobs.js';
 import { races, traits } from './../races.js';
 import { infoBoxBuilder, sideMenu, createCalcSection } from './functions.js';
 
@@ -113,6 +114,32 @@ export function pResPage(content){
     subSection = createCalcSection(section,'cores','bonus');
     coresQuantumCalc(subSection);
     sideMenu('add',`resources-prestige`,'ai_core',loc('wiki_p_res_ai_core'));
+
+    //Servants
+    section = infoBoxBuilder(mainContent,{ name: 'servants', template: 'p_res', paragraphs: 5, h_level: 2, break: [3,4,5],
+        para_data: {
+            1: [loc('wiki_resets_matrix'),loc('wiki_resets_retired'),loc('wiki_resets_eden')],
+            5: [loc('achieve_overlord_name')],
+        },
+        data_link: {
+            1: ['wiki.html#resets-prestige-matrix','wiki.html#resets-prestige-retired','wiki.html#resets-prestige-eden'],
+            5: ['wiki.html#perks-prestige-overlord'],
+        }
+    });
+    sideMenu('add',`resources-prestige`,'servants',loc('wiki_p_res_servants'));
+
+    //Skilled Servants
+    section = infoBoxBuilder(mainContent,{ name: 'skilled_servants', template: 'p_res', paragraphs: 6, h_level: 2, break: [3,4,5,6],
+        para_data: {
+            1: [loc('wiki_resets_matrix'),loc('wiki_resets_retired')],
+            6: [loc('achieve_pathfinder_name'),loc('achieve_overlord_name')],
+        },
+        data_link: {
+            1: ['wiki.html#resets-prestige-matrix','wiki.html#resets-prestige-retired'],
+            6: ['wiki.html#perks-prestige-pathfinder','wiki.html#perks-prestige-overlord'],
+        }
+    });
+    sideMenu('add',`resources-prestige`,'skilled_servants',loc('wiki_p_res_skilled_servants'));
 }
 
 const calcVars = {
@@ -140,6 +167,11 @@ export function prestigeCalc(info,resource,extraType,resetType){
         case 'bioseed':
         case 'cataclysm':
         case 'vacuum':
+        case 'terraform':
+        case 'ai':
+        case 'matrix':
+        case 'retired':
+        case 'eden':
             title += loc('wiki_resets_' + resetType) + " ";
             break;
         case 'bigbang':
@@ -150,9 +182,6 @@ export function prestigeCalc(info,resource,extraType,resetType){
             break;
         case 'descend':
             title += loc('wiki_resets_infusion') + " ";
-            break;
-        case 'ai':
-            title += loc('wiki_resets_ai') + " ";
             break;
         default:
             break;
@@ -217,7 +246,8 @@ export function prestigeCalc(info,resource,extraType,resetType){
         micro: { val: false, use: false },
         high_pop: { val: undefined, use: false },
         synth: { val: false, use: false },
-        tp: { val: false, use: false, enabled: true }
+        tp: { val: false, use: false, enabled: true },
+        wiki: true // flag to mark this query as coming from wiki
     };
     let universes = {
         standard: { use: true },
@@ -233,9 +263,13 @@ export function prestigeCalc(info,resource,extraType,resetType){
         cataclysm: { use: true },
         bigbang: { use: true },
         vacuum: { use: true },
+        terraform: { use: true },
         ascend: { use: true },
         descend: { use: false },
-        ai: { use: true }
+        ai: { use: true },
+        matrix: { use: true },
+        retired: { use: true },
+        eden: { use: true }
     };
     let showEval = { vis: false };
     let plasExtra = { capVis: false, overflowVis: false, totalVis: false, capVal: undefined, overflow: undefined, rawGains: undefined };
@@ -258,7 +292,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
             inputs.tp.use = false;
             inputs.tp.val = true;
         }
-        else if (!['mad','bioseed','cataclysm'].includes(resetType)){
+        else if (!['mad','bioseed','terraform'].includes(resetType)){
             inputs.tp.use = false;
             inputs.tp.val = false;
         }
@@ -369,9 +403,13 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 <b-dropdown-item v-show="r.cataclysm.use" v-on:click="pickReset('cataclysm')">{{ 'cataclysm' | resetLabel }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.bigbang.use" v-on:click="pickReset('bigbang')">{{ 'bigbang' | resetLabel }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.vacuum.use" v-on:click="pickReset('vacuum')">{{ 'vacuum' | resetLabel }}</b-dropdown-item>
+                <b-dropdown-item v-show="r.terraform.use" v-on:click="pickReset('terraform')">{{ 'terraform' | resetLabel }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.ascend.use" v-on:click="pickReset('ascend')">{{ 'ascend' | resetLabel }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.descend.use" v-on:click="pickReset('descend')">{{ 'descend' | resetLabel }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.ai.use" v-on:click="pickReset('ai')">{{ 'ai' | resetLabel }}</b-dropdown-item>
+                <b-dropdown-item v-show="r.matrix.use" v-on:click="pickReset('matrix')">{{ 'matrix' | resetLabel }}</b-dropdown-item>
+                <b-dropdown-item v-show="r.retired.use" v-on:click="pickReset('retired')">{{ 'retired' | resetLabel }}</b-dropdown-item>
+                <b-dropdown-item v-show="r.eden.use" v-on:click="pickReset('eden')">{{ 'eden' | resetLabel }}</b-dropdown-item>
             </b-dropdown></div>
             <div class="calcInput" v-show="i.uni.use"><span>${loc('wiki_calc_universe')}</span> <b-dropdown hoverable>
                 <button class="button is-primary" slot="trigger">
@@ -462,7 +500,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
                     universes.antimatter.use = false;
                 }
                 inputs.synth.use = reset === 'mad';
-                if (!['mad','bioseed','cataclysm'].includes(reset)){
+                if (!['mad','bioseed','terraform'].includes(reset)){
                     inputs.tp.enabled = false;
                     inputs.tp.val = reset === 'ai';
                 }
@@ -509,7 +547,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 inputs.sol.val = global.civic['garrison'] ? global.civic.garrison.workers : 0;
                 for (let i=0; i<3; i++){
                     if (global.civic.foreign[`gov${i}`].occ){
-                        inputs.sol.val += global.civic.govern.type === 'federation' ? 15 : 20;
+                        inputs.sol.val += jobScale(global.civic.govern.type === 'federation' ? 15 : 20);
                     }
                 }
                 inputs.know.val = global.stats.know;
@@ -545,7 +583,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 inputs.high_pop.val = global.race['high_pop'] ? global.race.high_pop : 0;
                 inputs.synth.val = races[global.race.species].type === 'synthetic';
                 if (inputs.tp.use){
-                    if (inputs.reset.val && ['mad','bioseed','cataclysm'].includes(inputs.reset.val)){
+                    if (inputs.reset.val && ['mad','bioseed','terraform'].includes(inputs.reset.val)){
                         inputs.tp.val = global.race['truepath'] ? true : false;
                     }
                 }
@@ -581,127 +619,34 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 return rank ? traits.high_pop.vars(rank)[0] : 1;
             },
             popDivisor(type,synth){
-                switch (type){
-                    case 'mad':
-                        if (synth){
-                            return 5;
-                        }
-                    case 'cataclysm':
-                    case 'bioseed':
-                        return 3;
-                    case 'ai':
-                        return 2.5;
-                    case 'vacuum':
-                    case 'bigbang':
-                        return 2.2;
-                    case 'ascend':
-                        return 1.15;
-                    default:
-                        return loc('wiki_calc_pop_divisor');
-                }
+                let rc = getResetConstants(inputs.reset.val, inputs)
+                if (rc.unknown) return loc('wiki_calc_pop_divisor');
+                return rc.pop_divisor;
             },
             knowMulti(type){
-                switch (type){
-                    case 'mad':
-                        return 1.1;
-                    case 'cataclysm':
-                    case 'bioseed':
-                        return 1.015;
-                    case 'ai':
-                        return 1.014;
-                    case 'vacuum':
-                    case 'bigbang':
-                        return 1.012;
-                    case 'ascend':
-                        return 1.008;
-                    default:
-                        return loc('wiki_calc_know_multi');
-                }
+                let rc = getResetConstants(inputs.reset.val, inputs)
+                if (rc.unknown) return loc('wiki_calc_know_multi');
+                return rc.k_mult;
             },
             knowInc(type,synth){
-                switch (type){
-                    case 'mad':
-                        if (synth){
-                            return 125000;
-                        }
-                        return 100000;
-                    case 'cataclysm':
-                    case 'bioseed':
-                        return 50000;
-                    case 'ai':
-                        return 45000;
-                    case 'vacuum':
-                    case 'bigbang':
-                        return 40000;
-                    case 'ascend':
-                        return 30000;
-                    default:
-                        return loc('wiki_calc_know_inc');
-                }
+                let rc = getResetConstants(inputs.reset.val, inputs)
+                if (rc.unknown) return loc('wiki_calc_know_inc');
+                return rc.k_inc;
             },
             phageMulti(type){
-                switch (type){
-                    case 'cataclysm':
-                    case 'bioseed':
-                        return 1;
-                    case 'ai':
-                        return 2;
-                    case 'vacuum':
-                    case 'bigbang':
-                        return 2.5;
-                    case 'ascend':
-                        return 4;
-                    default:
-                        return loc('wiki_calc_phage_multi');
-                }
+                let rc = getResetConstants(inputs.reset.val, inputs)
+                if (rc.unknown) return loc('wiki_calc_phage_multi');
+                return rc.phage_mult;
             },
             plasmidCap(type,synth){
-                switch (type){
-                    case 'mad':
-                        if (synth){
-                            return 100;
-                        }
-                        return 150;
-                    case 'cataclysm':
-                    case 'bioseed':
-                        return 400;
-                    case 'ai':
-                        return 600;
-                    case 'vacuum':
-                    case 'bigbang':
-                        return 800;
-                    case 'ascend':
-                        return 2000;
-                    default:
-                        return loc('wiki_calc_plasmid_cap');
-                }
+                let rc = getResetConstants(inputs.reset.val, inputs)
+                if (rc.unknown) return loc('wiki_calc_plasmid_cap');
+                return rc.plasmid_cap;
             },
             plasmidCapCalc(){
                 plasExtra.capVis = inputs.reset.val && inputs.genes.val !== undefined;
                 if (plasExtra.capVis){
-                    let cap = 0;
-                    switch (inputs.reset.val){
-                        case 'mad':
-                            cap = 150;
-                            if (inputs.synth.val){
-                                cap = 100;
-                            }
-                            break;
-                        case 'cataclysm':
-                        case 'bioseed':
-                            cap = 400;
-                            break;
-                        case 'ai':
-                            cap = 600;
-                            break;
-                        case 'vacuum':
-                        case 'bigbang':
-                            cap = 800;
-                            break;
-                        case 'ascend':
-                            cap = 2000;
-                            break;
-                    }
+                    let cap = getResetConstants(inputs.reset.val, inputs).plasmid_cap;
                     cap *= (1 + ((inputs.genes.val + 1 - (inputs.tp.val ? 0 : 1)) / 8));
                     plasExtra.capVal = Math.floor(cap);
                     return cap;
@@ -784,6 +729,10 @@ export function prestigeCalc(info,resource,extraType,resetType){
                     case 'cataclysm':
                     case 'vacuum':
                     case 'ai':
+                    case 'terraform':
+                    case 'matrix':
+                    case 'retired':
+                    case 'eden':
                         return loc('wiki_resets_' + lbl);
                     case 'bigbang':
                         return loc('wiki_resets_blackhole');
@@ -887,8 +836,8 @@ function plasProdCalc(info,type){
                 inputs.antimatter.val = false;
             },
             importInputs(){
-                inputs.plas.val = type === 'plasmid' ? global.race.Plasmid.count : global.race.Plasmid.anti;
-                inputs.phage.val = global.race.Phage.count;
+                inputs.plas.val = type === 'plasmid' ? global.prestige.Plasmid.count : global.prestige.AntiPlasmid.count;
+                inputs.phage.val = global.prestige.Phage.count;
                 inputs.antimatter.val = global.race.universe === 'antimatter';
             }
         },
@@ -1064,7 +1013,7 @@ function storeBonusCalc(info,type){
                 inputs.antimatter.val = false;
             },
             importInputs(){
-                inputs.res.val = type === 'phage' ? global.race.Phage.count : type === 'plasmid' ? global.race.Plasmid.count : global.race.Plasmid.anti;
+                inputs.res.val = type === 'phage' ? global.prestige.Phage.count : type === 'plasmid' ? global.prestige.Plasmid.count : global.prestige.AntiPlasmid.count;
                 inputs.store.val = global.genes.store || 0;
                 inputs.antimatter.val = global.race.universe === 'antimatter';
             }
@@ -1300,8 +1249,8 @@ function darkBonusCalc(info){
                 show.standard.vis = true;
             },
             importInputs(){
-                inputs.dark.val = global.race.Dark.count;
-                inputs.harmony.val = global.race.Harmony.count;
+                inputs.dark.val = global.prestige.Dark.count;
+                inputs.harmony.val = global.prestige.Harmony.count;
                 if (global.race.universe !== 'bigbang'){
                     show[inputs.uni.val].vis = false;
                     inputs.uni.val = global.race.universe;
@@ -1421,7 +1370,7 @@ function harmonyCreepCalc(info){
                 inputs.ascended.val = undefined;
             },
             importInputs(){
-                inputs.harmony.val = global.race.Harmony.count;
+                inputs.harmony.val = global.prestige.Harmony.count;
                 inputs.ascended.val = global.stats.achieve['ascended'] && global.stats.achieve['ascended'][universeAffix(global.race.universe || 'standard')] ? global.stats.achieve['ascended'][universeAffix(global.race.universe || 'standard')] : 0;
             }
         },
@@ -1465,7 +1414,6 @@ function coresQuantumCalc(info){
     let show = {
         result: { vis: false, val: 0 }
     }
-    //1 - (0.99 ** global.race.AICore.count);
     formula.append(`
         <div>
             <span>1 - (0.99^{{ i.cores.val, 'cores' | generic }})</span><span v-show="s.result.vis"> = {{ false | calc }} = +{{ true | calc }}%</span>
@@ -1498,7 +1446,7 @@ function coresQuantumCalc(info){
                 inputs.cores.val = undefined;
             },
             importInputs(){
-                inputs.cores.val = global.race.AICore.count;
+                inputs.cores.val = global.prestige.AICore.count;
             }
         },
         filters: {

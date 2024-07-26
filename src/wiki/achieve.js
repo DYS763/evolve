@@ -21,8 +21,6 @@ export function renderAchievePage(zone){
 }
 
 const universeExclusives = {
-    biome_hellscape: ['standard', 'micro', 'heavy', 'antimatter', 'magic'],
-    biome_eden: ['evil'],
     cross: ['antimatter'],
     vigilante: ['evil'],
     squished: ['micro'],
@@ -37,19 +35,31 @@ const universeExclusives = {
     microbang: ['micro'],
     pw_apocalypse: ['magic'],
     pass: ['magic'],
-    fullmetal: ['magic']
+    fullmetal: ['magic'],
+    soul_sponge: ['magic'],
+    nightmare: ['magic'],
+    escape_velocity: ['heavy']
 };
 
 const achieveDescData = {
     trade: [750,50]
 };
 
-function achievePage(universe){
+function achievePage(universe, filter){
     let content = $(`#content`);
     clearElement(content);
     
     let filtering = `
     <div id="filtering" class="b-tabs">
+        <nav class="tabs">
+            <ul>
+                <li class="${filter ? '' : 'is-active'}"><a @click="filterSwap()">All</a></li>
+                <li class="${filter && filter === 'missing' ? 'is-active' : ''}"><a @click="filterSwap('missing')">${loc('wiki_achievements_missing')}</a></li>
+                <li class="${filter && filter === 'obtained' ? 'is-active' : ''}"><a @click="filterSwap('obtained')">${loc('wiki_achievements_obtained')}</a></li>
+                <li class="${filter && filter === 'incomplete' ? 'is-active' : ''}"><a @click="filterSwap('incomplete')">${loc('wiki_achievements_incomplete')}</a></li>
+                <li class="${filter && filter === 'completed' ? 'is-active' : ''}"><a @click="filterSwap('completed')">${loc('wiki_achievements_completed')}</a></li>
+            </ul>
+        </nav>
         <nav class="tabs">
             <ul>
                 <li class="${universe ? '' : 'is-active'}"><a @click="universeSwap()">${loc('universe_all')}</a></li>
@@ -69,8 +79,11 @@ function achievePage(universe){
     vBind({
         el: `#filtering`,
         methods: {
-            universeSwap(universe){
-                achievePage(universe);
+            universeSwap(universe) {
+                achievePage(universe, filter);
+            },
+            filterSwap(filter) {
+                achievePage(universe, filter);
             }
         }
     });
@@ -80,7 +93,20 @@ function achievePage(universe){
     let types = {};
     Object.keys(achievements).forEach(function (achievement){
         if (!universe || !universeExclusives[achievement] || universeExclusives[achievement].indexOf(universe) > -1){
-            if (types.hasOwnProperty(achievements[achievement].type)){
+            if (filter === 'missing' && global.stats.achieve[achievement] && global.stats.achieve[achievement][uAffix] && global.stats.achieve[achievement][uAffix] > 0) return;
+            if (filter === 'obtained' && !(global.stats.achieve[achievement] && global.stats.achieve[achievement][uAffix] && global.stats.achieve[achievement][uAffix] > 0)) return;
+            if (filter === 'incomplete' && universe && global.stats.achieve[achievement] && global.stats.achieve[achievement][uAffix] && global.stats.achieve[achievement][uAffix] > 4) return;
+            if (filter === 'completed' && universe && !(global.stats.achieve[achievement] && global.stats.achieve[achievement][uAffix] && global.stats.achieve[achievement][uAffix] > 4)) return;
+            if ((filter === 'incomplete' || filter === 'completed') && !universe) {
+                let max = achievements[achievement].type === 'universe' ? 10 : 30;
+                if (achievement === 'whitehole') max = 5;
+                if (global.stats.achieve[achievement])
+                    Object.keys(global.stats.achieve[achievement]).forEach(uni => max -= global.stats.achieve[achievement][uni]);
+                if (filter === 'incomplete' && max <= 0) return;
+                if (filter === 'completed' && max > 0) return;
+            }
+
+            if (types.hasOwnProperty(achievements[achievement].type)) {
                 types[achievements[achievement].type].push(achievement);
             }
             else {
@@ -255,6 +281,41 @@ function achieveDesc(achievement,showFlair,universe){
         checklist = checklist + `</div>`;
         popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc(`wiki_achieve_${achievement}`)}</div>${checklist}${flair}`));
     }
+    else if (achievement === 'pathfinder'){
+        let path = `<div class="flexed">`;
+        ['ashanddust','exodus','obsolete','bluepill','retired'].forEach(function (key){
+            let label = loc(`achieve_${key}_name`);
+            if (global.stats.achieve[key] && global.stats.achieve[key][uAffix] >= 5){
+                path = path + `<span class="wide iclr${global.stats.achieve[key][uAffix]}">${label}</span>`;
+            }
+            else {
+                path = path + `<span class="wide has-text-danger">${label}</span>`;
+            }
+        });
+        path = path + `</div>`;
+        popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc(`wiki_achieve_${achievement}`)}</div>${path}${flair}`));
+    }
+    else if (achievement === 'overlord'){
+        let wom_list = `<div class="flexed">`;
+        let womling = {
+            'subjugate': 'lord',
+            'contact': 'friend',
+            'introduced': 'god',
+        };
+
+        let uAffix = universeAffix(universe || 'standard');
+
+        Object.keys(womling).forEach(function (key){
+            if (global.stats.womling[womling[key]] && global.stats.womling[womling[key]][uAffix] > 0){
+                wom_list = wom_list + `<span class="wide iclr5">${loc(`wiki_achieve_overlord_${key}`)}</span>`;
+            }
+            else {
+                wom_list = wom_list + `<span class="wide has-text-danger">${loc(`wiki_achieve_overlord_${key}`)}</span>`;
+            }
+        });
+        wom_list = wom_list + `</div>`;
+        popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc(`wiki_achieve_${achievement}`)}</div>${wom_list}${flair}`));
+    }
     else if (achievement.includes('extinct_') && achievement.substring(8) !== 'custom'){
         let race = achievement.substring(8);
         popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc('wiki_achieve_extinct_race',[loc(`race_${race}`)])}</div>${flair}`));
@@ -279,7 +340,7 @@ function featDesc(feat,showFlair){
         const date = new Date();
         let year = date.getFullYear();
         let eggs = `<div class="has-text-warning">${loc('wiki_feat_egghunt_found')}</div><div class="flexed">`;
-        for (let i=1; i<=15; i++){
+        for (let i=1; i<=18; i++){
             let egg = global.special.egg[year][`egg${i}`] ? 'has-text-success' : 'has-text-danger';
             eggs = eggs + `<span class="${egg}">${loc('wiki_feat_egghunt_num',[i])}</span>`
         }
@@ -311,8 +372,15 @@ function featDesc(feat,showFlair){
             });
         }
         let checked = `<div class="flexed wide">`;    
-        Object.keys(races).sort().forEach(function (key){
-            if (key !== 'protoplasm' && (key !== 'sludge' || species['sludge'] >= 1) && (key !== 'custom' || (key === 'custom' && global.stats.achieve['ascended']))){
+        Object.keys(races).sort(function(a,b){
+            if (races[a].hasOwnProperty('name') && races[b].hasOwnProperty('name')){
+                return (races[a].name || 'Zombie').localeCompare(races[b].name);
+            }
+            else {
+                return 0;
+            }
+        }).forEach(function (key){
+            if (key !== 'protoplasm' && (key !== 'custom' || (key === 'custom' && global.stats.achieve['ascended']))){
                 if (species[key] && species[key] >= 1){
                     checked = checked + `<span class="wide iclr${species[key]}">${races[key].name}</span>`;
                 }
